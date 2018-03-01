@@ -50,58 +50,57 @@
             ]
         };
 
-        /* stimulus block */
-
-        var test_stimuli = [{
-            image: "mancar.1.png",
-            num_choices: 1,
-        }];
-
-        var all_trials = jsPsych.randomization.repeat(test_stimuli, 10, true);
-
-        var page_1_options = ["Strongly agree", "Strongly disagree"];
-
-        var test_block = {
-            type: "image-button-response",
-            stimulus: "/static/images/mancar.1.png",
-            prompt: "My friend Jimmy is standing in front of the car. Which of the following is Jimmy?",
-            choices: page_1_options,
-        };
-
-        /* debrief block */
-
-        var debrief_block = {
-            type: "html-keyboard-response",
-            stimulus: function() {
-                return "<p>You have completed the experiment. Thank you!</p>";
-            }
-        };
-
-
-        /* define experiment structure */
-
-        var experiment_blocks = [];
-
-        experiment_blocks.push(instructions_block);
-
-        experiment_blocks.push(test_block);
-
-        experiment_blocks.push(debrief_block);
-
-
-        /* start the experiment */
-
-        jsPsych.init({
-            timeline: experiment_blocks,
-            on_finish: function() {
-                psiturk.saveData({
-                    success: function() { psiturk.completeHIT(); }
-                });
-            },
-            on_data_update: function(data) {
-                psiturk.recordTrialData(data);
-            }
+        $.getJSON("/stimuli", {uniqueId: uniqueId}, function(data){
+            setup_experiment(data.stimuli);
         });
+
+        var setup_experiment = function(stimuli) {
+            var test_stimuli = $.map(stimuli, function(stim) {
+                return {
+                    type: "image-button-response",
+                    stimulus: "/renders/" + stim.image_path,
+                    prompt: "My friend Jimmy is standing in front of the car. Which of the following is Jimmy?", // TODO
+                    choices: Object.keys(stim.referents)
+                }
+            });
+
+            var all_trials = test_stimuli; //jsPsych.randomization.repeat(test_stimuli, 10, true);
+
+            /* debrief block */
+
+            var debrief_block = {
+                type: "html-keyboard-response",
+                stimulus: function() {
+                    return "<p>You have completed the experiment. Thank you!</p>";
+                }
+            };
+
+
+            /* define experiment structure */
+
+            var experiment_blocks = [];
+
+            experiment_blocks.push(instructions_block);
+
+            experiment_blocks = experiment_blocks.concat(all_trials);
+
+            experiment_blocks.push(debrief_block);
+
+
+            /* start the experiment */
+
+            jsPsych.init({
+                timeline: experiment_blocks,
+                on_finish: function() {
+                    psiturk.saveData({
+                        success: function() { psiturk.completeHIT(); }
+                    });
+                },
+                on_data_update: function(data) {
+                    psiturk.recordTrialData(data);
+                }
+            });
+        };
     </script>
 
 </html>

@@ -145,6 +145,7 @@ def render_image(context, data, ordered_referents, scene_name, idx):
     info_file = "%s.%02i.json" % (scene_name, idx)
     info = {
         "scene": scene_name,
+        "image_path": img_path,
         "referents": referents
     }
 
