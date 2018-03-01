@@ -95,62 +95,66 @@ def get_referents(data):
 def render_images(context, data, name):
     scene = context.scene
     camera = scene.camera
-    referents = get_referents(data)
 
     scene.render.image_settings.file_format = "PNG"
 
-    # TODO loop over keyframe
-    for i, ordered_referents in enumerate(permutations(referents)):
-        render_image(context, data, ordered_referents, name, i)
+    for frame in range(scene.frame_start, scene.frame_end + 1):
+        scene.frame_set(frame)
+        frame_name = "%s-%02i" % (name, frame)
+        render_frame(context, data, get_referents(data), frame_name)
 
 
-def render_image(context, data, ordered_referents, scene_name, idx):
-    bboxes = [camera_view_bounds_2d(context.scene, context.scene.camera, obj)
-              for obj in ordered_referents]
+def render_frame(context, data, referents, scene_name):
 
     # Output Blender render.
-    img_path = "%s.%02i.png" % (scene_name, idx)
+    img_path = "%s.png" % scene_name
     context.scene.render.filepath = img_path
     bpy.ops.render.render(write_still=True)
 
-    # Now open with PIL and draw on bboxes.
-    img = Image.open(img_path)
-    draw = ImageDraw.Draw(img)
-    width, height = img.size
+    for i, ordered_referents in enumerate(permutations(referents)):
+        bboxes = [camera_view_bounds_2d(context.scene, context.scene.camera, obj)
+                  for obj in ordered_referents]
 
-    # # DEV: draw bounding boxes.
-    # for bbox in bboxes:
-    #     min_x, min_y, max_x, max_y = bbox
-    #     draw.rectangle(((min_x * width, height - min_y * height),
-    #                     (max_x * width, height - max_y * height)), outline="black")
+        # Now open with PIL and draw on bboxes.
+        img = Image.open(img_path)
+        draw = ImageDraw.Draw(img)
+        width, height = img.size
 
-    # Draw text labels.
-    referents = {}
-    font = ImageFont.truetype("arial", size=26)
-    for i, (bbox, obj) in enumerate(zip(bboxes, ordered_referents)):
-        min_x, min_y, max_x, max_y = bbox
+        # # DEV: draw bounding boxes.
+        # for bbox in bboxes:
+        #     min_x, min_y, max_x, max_y = bbox
+        #     draw.rectangle(((min_x * width, height - min_y * height),
+        #                     (max_x * width, height - max_y * height)), outline="black")
 
-        text_label = chr(65 + i)
-        mid_x = min_x + (max_x - min_x) / 2
-        mid_y = min_y + (max_y - min_y) / 2
+        # Draw text labels.
+        referents = {}
+        font = ImageFont.truetype("arial", size=26)
+        for j, (bbox, obj) in enumerate(zip(bboxes, ordered_referents)):
+            min_x, min_y, max_x, max_y = bbox
 
-        draw.text((mid_x * width - 7, height - mid_y * height - 10), text_label, fill="black",
-                  font=font)
+            text_label = chr(65 + j)
+            mid_x = min_x + (max_x - min_x) / 2
+            mid_y = min_y + (max_y - min_y) / 2
 
-        referents[text_label] = obj.name
+            draw.text((mid_x * width - 7, height - mid_y * height - 10), text_label, fill="black",
+                    font=font)
 
-    img.save(img_path, "PNG")
+            referents[text_label] = obj.name
 
-    # Save referent order in companion text file.
-    info_file = "%s.%02i.json" % (scene_name, idx)
-    info = {
-        "scene": scene_name,
-        "image_path": img_path,
-        "referents": referents
-    }
+        img_path_i = "%s.%02i.png" % (scene_name, i)
+        img.save(img_path_i, "PNG")
+        print(img_path_i)
 
-    with open(info_file, "w") as info_f:
-        json.dump(info, info_f)
+        # Save referent order in companion text file.
+        info_file = "%s.%02i.json" % (scene_name, i)
+        info = {
+            "scene": scene_name,
+            "image_path": img_path,
+            "referents": referents
+        }
+
+        with open(info_file, "w") as info_f:
+            json.dump(info, info_f)
 
 fpath = bpy.path.basename(bpy.data.filepath)
 render_images(bpy.context, bpy.data, fpath[:fpath.rindex(".")])
