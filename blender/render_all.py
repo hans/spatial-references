@@ -1,5 +1,6 @@
 from collections import namedtuple
 from itertools import permutations
+import json
 
 from PIL import Image, ImageDraw, ImageFont
 
@@ -100,32 +101,33 @@ def render_images(context, data, name):
 
     # TODO loop over keyframe
     for i, ordered_referents in enumerate(permutations(referents)):
-        name = "name.%02i" % i
-        render_image(context, data, ordered_referents, name)
+        render_image(context, data, ordered_referents, name, i)
 
 
-def render_image(context, data, ordered_referents, name):
+def render_image(context, data, ordered_referents, scene_name, idx):
     bboxes = [camera_view_bounds_2d(context.scene, context.scene.camera, obj)
               for obj in ordered_referents]
 
-    path = name + ".png"
-    context.scene.render.filepath = path
+    # Output Blender render.
+    img_path = "%s.%02i.png" % (scene_name, idx)
+    context.scene.render.filepath = img_path
     bpy.ops.render.render(write_still=True)
 
     # Now open with PIL and draw on bboxes.
-    img = Image.open(path)
+    img = Image.open(img_path)
     draw = ImageDraw.Draw(img)
     width, height = img.size
 
-    # DEV: draw bounding boxes.
-    for bbox in bboxes:
-        min_x, min_y, max_x, max_y = bbox
-        draw.rectangle(((min_x * width, height - min_y * height),
-                        (max_x * width, height - max_y * height)), outline="black")
+    # # DEV: draw bounding boxes.
+    # for bbox in bboxes:
+    #     min_x, min_y, max_x, max_y = bbox
+    #     draw.rectangle(((min_x * width, height - min_y * height),
+    #                     (max_x * width, height - max_y * height)), outline="black")
 
     # Draw text labels.
-    font = ImageFont.truetype("arial")
-    for i, bbox in enumerate(bboxes):
+    referents = {}
+    font = ImageFont.truetype("arial", size=26)
+    for i, (bbox, obj) in enumerate(zip(bboxes, ordered_referents)):
         min_x, min_y, max_x, max_y = bbox
 
         text_label = chr(65 + i)
@@ -135,9 +137,19 @@ def render_image(context, data, ordered_referents, name):
         draw.text((mid_x * width - 7, height - mid_y * height - 10), text_label, fill="black",
                   font=font)
 
-    # TODO save referent order somewhere
+        referents[text_label] = obj.name
 
-    img.save(path, "PNG")
+    img.save(img_path, "PNG")
 
+    # Save referent order in companion text file.
+    info_file = "%s.%02i.json" % (scene_name, idx)
+    info = {
+        "scene": scene_name,
+        "referents": referents
+    }
 
-render_images(bpy.context, bpy.data, "test")
+    with open(info_file, "w") as info_f:
+        json.dump(info, info_f)
+
+fpath = bpy.path.basename(bpy.data.filepath)
+render_images(bpy.context, bpy.data, fpath[:fpath.rindex(".")])
