@@ -1,0 +1,11 @@
+{
+    "scene_name": "mancar",
+    "scene_file": "mancar.blend",
+    "relations": ["in front of", "near"],
+    "ground": "the car",
+
+    "prompts": {
+        "pick": "My friend {name} is standing {relation} {ground}. Which one is {name}?",
+        "count": "How many people are standing {relation} {ground}?"
+    }
+}

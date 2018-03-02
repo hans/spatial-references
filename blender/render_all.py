@@ -1,10 +1,14 @@
+from argparse import ArgumentParser
 from collections import namedtuple
 from itertools import permutations
 import json
+from pathlib import Path
+import sys
 
 from PIL import Image, ImageDraw, ImageFont
 
 import bpy
+from bpy.app.handlers import persistent
 from mathutils import Vector
 
 
@@ -92,7 +96,7 @@ def get_referents(data):
     return data.groups["Referents"].objects
 
 
-def render_images(context, data, name):
+def render_images(context, data, scene_data):
     scene = context.scene
     camera = scene.camera
 
@@ -100,14 +104,14 @@ def render_images(context, data, name):
 
     for frame in range(scene.frame_start, scene.frame_end + 1):
         scene.frame_set(frame)
-        frame_name = "%s-%02i" % (name, frame)
-        render_frame(context, data, get_referents(data), frame_name)
+        frame_name = "%s-%02i" % (scene_data["scene_name"], frame)
+        render_frame(context, data, get_referents(data), frame_name, scene_data)
 
 
-def render_frame(context, data, referents, scene_name):
+def render_frame(context, data, referents, frame_name, scene_data):
 
     # Output Blender render.
-    img_path = "%s.png" % scene_name
+    img_path = "%s.png" % frame_name
     context.scene.render.filepath = img_path
     bpy.ops.render.render(write_still=True)
 
@@ -141,14 +145,15 @@ def render_frame(context, data, referents, scene_name):
 
             referents[text_label] = obj.name
 
-        img_path_i = "%s.%02i.png" % (scene_name, i)
+        img_path_i = "%s.%02i.png" % (frame_name, i)
         img.save(img_path_i, "PNG")
         print(img_path_i)
 
         # Save referent order in companion text file.
-        info_file = "%s.%02i.json" % (scene_name, i)
+        info_file = "%s.%02i.json" % (frame_name, i)
         info = {
-            "scene": scene_name,
+            "scene": scene_data["scene_name"],
+            "frame": frame_name,
             "image_path": img_path,
             "referents": referents
         }
@@ -156,5 +161,30 @@ def render_frame(context, data, referents, scene_name):
         with open(info_file, "w") as info_f:
             json.dump(info, info_f)
 
-fpath = bpy.path.basename(bpy.data.filepath)
-render_images(bpy.context, bpy.data, fpath[:fpath.rindex(".")])
+
+def main(args):
+    with open(args.scene_json, "r") as f:
+        scene_data = json.load(f)
+
+    scene_path = Path(args.scene_json).parents[0] / scene_data["scene_file"]
+
+    @persistent
+    def load_handler(_):
+        render_images(bpy.context, bpy.data, scene_data)
+
+    bpy.app.handlers.load_post.append(load_handler)
+
+    bpy.ops.wm.open_mainfile(filepath=str(scene_path))
+
+
+if __name__ == '__main__':
+    try:
+        argv = sys.argv[sys.argv.index("--") + 1:]
+    except:
+        argv = []
+
+    p = ArgumentParser()
+
+    p.add_argument("scene_json")
+
+    main(p.parse_args(argv))
