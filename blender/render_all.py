@@ -2,6 +2,7 @@ from argparse import ArgumentParser
 from collections import namedtuple
 from itertools import permutations
 import json
+import os
 from pathlib import Path
 import sys
 
@@ -13,6 +14,14 @@ from mathutils import Vector
 
 
 Box = namedtuple("Box", ["min_x", "min_y", "max_x", "max_y"])
+
+
+FRAME_PROPERTY_VALUES = {
+    0: None,
+    1: "relative",
+    2: "intrinsic",
+    3: "functional"
+}
 
 
 def camera_view_bounds_2d(scene, cam_ob, me_ob):
@@ -96,7 +105,7 @@ def get_referents(data):
             if not obj.hide_render]
 
 
-def render_images(context, data, scene_data):
+def render_images(context, data, scene_data, out_dir):
     scene = context.scene
     camera = scene.camera
 
@@ -105,23 +114,25 @@ def render_images(context, data, scene_data):
     for frame in range(scene.frame_start, scene.frame_end + 1):
         scene.frame_set(frame)
         frame_name = "%s-%02i" % (scene_data["scene_name"], frame)
-        render_frame(context, data, get_referents(data), frame_name, scene_data)
+        render_frame(context, data, get_referents(data), frame_name, scene_data, out_dir)
 
 
-def render_frame(context, data, referents, frame_name, scene_data):
+def render_frame(context, data, referents, frame_name, scene_data, out_dir):
 
     # Output Blender render.
-    img_path = "%s.png" % frame_name
+    img_path = str(out_dir / ("%s.png" % frame_name))
     context.scene.render.filepath = img_path
     bpy.ops.render.render(write_still=True)
+
+    img = Image.open(img_path).convert("RGBA")
 
     for i, ordered_referents in enumerate(permutations(referents)):
         bboxes = [camera_view_bounds_2d(context.scene, context.scene.camera, obj)
                   for obj in ordered_referents]
 
-        # Now open with PIL and draw on bboxes.
-        img = Image.open(img_path)
-        draw = ImageDraw.Draw(img)
+        # Draw reference names on a new layer.
+        layer = Image.new("RGBA", img.size, (255, 255, 255, 0))
+        draw = ImageDraw.Draw(layer)
         width, height = img.size
 
         # # DEV: draw bounding boxes.
@@ -135,26 +146,50 @@ def render_frame(context, data, referents, frame_name, scene_data):
         font = ImageFont.truetype("arial", size=26)
         for j, (bbox, obj) in enumerate(zip(bboxes, ordered_referents)):
             min_x, min_y, max_x, max_y = bbox
+            min_x *= width
+            max_x *= width
+            min_y = (1 - min_y) * height
+            max_y = (1 - max_y) * height
 
+            # Calculate text bbox and center.
             text_label = chr(65 + j)
-            mid_x = min_x + (max_x - min_x) / 2
-            mid_y = min_y + (max_y - min_y) / 2
+            text_bbox = font.getmask(text_label).getbbox()
 
-            draw.text((mid_x * width - 7, height - mid_y * height - 10), text_label, fill="black",
-                    font=font)
+            text_width = text_bbox[2] - text_bbox[0]
+            text_height = text_bbox[3] - text_bbox[1] + 10
+            print(text_width, text_height)
 
-            referents[text_label] = obj.name
+            textbox_x = min_x + (max_x - min_x) / 2 - text_width / 2
+            textbox_y = min_y + (max_y - min_y) / 2 - text_height / 2
 
-        img_path_i = "%s.%02i.png" % (frame_name, i)
-        img.save(img_path_i, "PNG")
+            draw.rectangle([(textbox_x, textbox_y), (textbox_x + text_width, textbox_y + text_height)],
+                           fill=(0, 0, 0, 100))
+            draw.text((textbox_x, textbox_y), text_label, fill="white",
+                      font=font)
+
+            try:
+                obj_data = data.meshes[obj.name]
+                reference_frame_id = obj_data.get("frame", 0)
+            except KeyError:
+                # not all referents have reference frame data
+                reference_frame_id = 0
+
+            reference_frame = FRAME_PROPERTY_VALUES[reference_frame_id]
+            referents[text_label] = (obj.name, reference_frame)
+
+        img_path_i = str(out_dir / ("%s.%02i.png" % (frame_name, i)))
+
+        combined = Image.alpha_composite(img, layer)
+        combined.save(img_path_i, "PNG")
         print(img_path_i)
 
         # Save referent order in companion text file.
-        info_file = "%s.%02i.json" % (frame_name, i)
+        info_file = str(out_dir / ("%s.%02i.json" % (frame_name, i)))
         info = {
             "scene": scene_data["scene_name"],
             "frame": frame_name,
-            "image_path": img_path_i,
+            "frame_path": img_path,
+            "labeled_frame_path": img_path_i,
             "referents": referents
         }
 
@@ -166,15 +201,22 @@ def main(args):
     with open(args.scene_json, "r") as f:
         scene_data = json.load(f)
 
-    scene_path = Path(args.scene_json).parents[0] / scene_data["scene_file"]
+    scene_dir = Path(args.scene_json).parents[0]
+
+    # Change to the Blender file's directory before loading the scene.
+    # Otherwise loading of external textures can break.
+    #
+    # This also allows the scene JSON files to use relative paths to
+    # the Blender files.
+    os.chdir(scene_dir)
 
     @persistent
     def load_handler(_):
-        render_images(bpy.context, bpy.data, scene_data)
+        render_images(bpy.context, bpy.data, scene_data, Path(args.out_dir))
 
     bpy.app.handlers.load_post.append(load_handler)
 
-    bpy.ops.wm.open_mainfile(filepath=str(scene_path))
+    bpy.ops.wm.open_mainfile(filepath=scene_data["scene_file"])
 
 
 if __name__ == '__main__':
@@ -186,5 +228,6 @@ if __name__ == '__main__':
     p = ArgumentParser()
 
     p.add_argument("scene_json")
+    p.add_argument("-o", "--out_dir", default=os.getcwd())
 
     main(p.parse_args(argv))
