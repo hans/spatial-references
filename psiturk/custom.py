@@ -19,6 +19,10 @@ custom_code = Blueprint("custom_code", __name__, template_folder="templates", st
 RENDER_PATH = "../blender/out"
 
 
+MALE_NAMES = ["Oliver", "Harry", "Jack", "Noah", "George", "Charlie",
+              "Jacob", "Fred", "Oscar", "Leo", "Thomas"]
+
+
 def sample_stimuli(n, stimuli_path=RENDER_PATH):
     choices = list(Path(stimuli_path).glob("*.json"))
 
@@ -34,9 +38,33 @@ def sample_stimuli(n, stimuli_path=RENDER_PATH):
 
 @custom_code.route("/stimuli", methods=["GET"])
 def get_stimuli():
-    ret = jsonify({"stimuli": sample_stimuli(10)})
-    print(ret)
-    return ret
+    n_samples = 10
+    male_names = random.sample(MALE_NAMES, n_samples)
+
+    ret = []
+    for stim, male_name in zip(sample_stimuli(n_samples), male_names):
+        meta = stim["scene_data"]
+        relation = random.choice(meta["relations"])
+
+        prompt_type = "pick"#random.choice(meta["prompts"].keys())
+        prompt = meta["prompts"][prompt_type]
+        prompt = prompt.format(relation=relation, ground=meta["ground"],
+                               name=random.choice(MALE_NAMES))
+
+        ret.append({
+            "scene": stim["scene"],
+            "frame": stim["frame"],
+            "referents": stim["referents"],
+
+            "relation": relation,
+            "prompt_type": prompt_type,
+            "prompt": prompt,
+
+            "frame_path": stim["frame_path"],
+            "labeled_frame_path": stim["labeled_frame_path"],
+        })
+
+    return jsonify({"stimuli": ret})
 
 
 @custom_code.route("/renders/<fname>")
