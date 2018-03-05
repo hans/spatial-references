@@ -23,11 +23,20 @@ MALE_NAMES = ["Oliver", "Harry", "Jack", "Noah", "George", "Charlie",
               "Jacob", "Fred", "Oscar", "Leo", "Thomas"]
 
 
+ENABLED_SCENES = [
+    "mancar",
+    #"mantv",
+]
+
+
 def sample_stimuli(n, stimuli_path=RENDER_PATH):
-    choices = list(Path(stimuli_path).glob("*.json"))
+    choices = ENABLED_SCENES
 
     ret = []
-    for json_path in random.sample(choices, min(n, len(choices))):
+    for scene in random.sample(choices, min(n, len(choices))):
+        frame_choices = list(Path(stimuli_path).glob("%s-*.json" % scene))
+        json_path = random.choice(frame_choices)
+
         with open(str(json_path), "r") as f:
             data = json.load(f)
 
