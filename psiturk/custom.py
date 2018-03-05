@@ -46,7 +46,7 @@ def get_stimuli():
         meta = stim["scene_data"]
         relation = random.choice(meta["relations"])
 
-        prompt_type = "pick"#random.choice(meta["prompts"].keys())
+        prompt_type = random.choice(meta["prompts"].keys())
         prompt = meta["prompts"][prompt_type]
         prompt = prompt.format(relation=relation, ground=meta["ground"],
                                name=random.choice(MALE_NAMES))

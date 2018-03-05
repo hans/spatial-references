@@ -16,16 +16,28 @@ jsPsych.plugins["scene-choice"] = (function() {
 
     var data = trial.data;
 
-    // display stimulus
-    var html = '<img src="/renders/'+data.labeled_frame_path+'" id="scene-stimulus"></img>';
+    var html = '<p class="scene-instructions">Respond to the following prompt:</p>';
+    html += '<p class="scene-prompt">' + data.prompt + '</p>';
 
-    html += '<div class="scene-prompt">' + data.prompt + '</div>';
+    frame_path = data.prompt_type == "pick" ? data.labeled_frame_path : data.frame_path;
+    html += '<img src="/renders/'+frame_path+'" id="scene-stimulus"></img>';
 
     //display buttons
     html += '<div id="scene-choice-btngroup">';
-    var referents = Object.keys(data.referents);
-    for (var i = 0; i < referents.length; i++) {
-      html += '<div class="scene-choice-button" style="display: inline-block; margin: 0px 8px" id="scene-choice-button-' + i +'" data-choice="'+referents[i]+'"><button class="jspsych-btn">'+referents[i]+'</button></div>';
+
+    var count_choices = function(referents) {
+      var choices = [];
+      for (var i = 0; i <= referents.length; i++)
+        choices.push("" + i);
+      return choices;
+    }
+
+    var choices = Object.keys(data.referents);
+    if (data.prompt_type == "count")
+      choices = count_choices(choices);
+
+    for (var i = 0; i < choices.length; i++) {
+      html += '<div class="scene-choice-button" style="display: inline-block; margin: 0px 8px" id="scene-choice-button-' + i +'" data-choice="'+choices[i]+'"><button class="jspsych-btn">'+choices[i]+'</button></div>';
     }
     html += '</div>';
 
@@ -34,7 +46,7 @@ jsPsych.plugins["scene-choice"] = (function() {
     // start timing
     var start_time = Date.now();
 
-    for (var i = 0; i < referents.length; i++) {
+    for (var i = 0; i < choices.length; i++) {
       display_element.querySelector('#scene-choice-button-' + i).addEventListener('click', function(e){
         var choice = e.currentTarget.getAttribute('data-choice'); // don't use dataset for jsdom compatibility
         after_response(choice);
@@ -59,10 +71,9 @@ jsPsych.plugins["scene-choice"] = (function() {
     function after_response(choice) {
 
       // measure rt
-      console.log(response);
       var end_time = Date.now();
       var rt = end_time - start_time;
-      response.choice = choice;
+      response.choice = data.prompt_type == "count" ? parseInt(choice) : choice;
       response.rt = rt;
 
       // after a valid response, the stimulus will have the CSS class 'responded'

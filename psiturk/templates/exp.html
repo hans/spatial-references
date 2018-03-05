@@ -26,6 +26,7 @@
         <script src="/static/js/psiturk.js" type="text/javascript"></script>
 
         <link href="/static/css/jspsych.css" rel="stylesheet" type="text/css"></link>
+        <link href="/static/css/scene-response.css" rel="stylesheet" type="text/css"></link>
     </head>
 
     <body>
@@ -56,11 +57,8 @@
 
         var setup_experiment = function(stimuli) {
             var test_stimuli = $.map(stimuli, function(stim) {
-                console.log(stim["prompt_type"])
-                var stim_type = stim["prompt_type"] == "pick" ? "scene-choice" : "scene-count";
-
                 return {
-                    type: stim_type,
+                    type: "scene-choice",
                     data: stim,
                 }
             });
