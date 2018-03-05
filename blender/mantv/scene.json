@@ -1,0 +1,11 @@
+{
+    "scene_name": "mantv",
+    "scene_file": "loft.blend",
+    "relations": ["in front of", "near"],
+    "ground": "the television",
+
+    "prompts": {
+        "pick": "My friend {name} is standing {relation} {ground}. Which one is {name}?",
+        "count": "How many people are standing {relation} {ground}?"
+    }
+}
