@@ -154,7 +154,7 @@ def render_frame(context, data, referents, frame_name, scene_data):
         info = {
             "scene": scene_data["scene_name"],
             "frame": frame_name,
-            "image_path": img_path,
+            "image_path": img_path_i,
             "referents": referents
         }
 
