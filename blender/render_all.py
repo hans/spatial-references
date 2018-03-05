@@ -1,3 +1,6 @@
+import sys
+sys.path.append("/home/jon/anaconda3/lib/python3.6/site-packages")
+
 from argparse import ArgumentParser
 from collections import namedtuple
 from itertools import permutations
@@ -7,6 +10,7 @@ from pathlib import Path
 import sys
 
 from PIL import Image, ImageDraw, ImageFont
+from tqdm import tqdm, trange
 
 import bpy
 from bpy.app.handlers import persistent
@@ -111,7 +115,7 @@ def render_images(context, data, scene_data, out_dir):
 
     scene.render.image_settings.file_format = "PNG"
 
-    for frame in range(scene.frame_start, scene.frame_end + 1):
+    for frame in trange(scene.frame_start, scene.frame_end + 1, desc="Rendering frames"):
         scene.frame_set(frame)
         frame_name = "%s-%02i" % (scene_data["scene_name"], frame)
         render_frame(context, data, get_referents(data), frame_name, scene_data, out_dir)
@@ -120,13 +124,14 @@ def render_images(context, data, scene_data, out_dir):
 def render_frame(context, data, referents, frame_name, scene_data, out_dir):
 
     # Output Blender render.
-    img_path = str(out_dir / ("%s.png" % frame_name))
+    img_name = "%s.png" % frame_name
+    img_path = str(out_dir / img_name)
     context.scene.render.filepath = img_path
     bpy.ops.render.render(write_still=True)
 
     img = Image.open(img_path).convert("RGBA")
 
-    for i, ordered_referents in enumerate(permutations(referents)):
+    for i, ordered_referents in tqdm(enumerate(permutations(referents)), desc="Rendering permutations"):
         bboxes = [camera_view_bounds_2d(context.scene, context.scene.camera, obj)
                   for obj in ordered_referents]
 
@@ -157,7 +162,6 @@ def render_frame(context, data, referents, frame_name, scene_data, out_dir):
 
             text_width = text_bbox[2] - text_bbox[0]
             text_height = text_bbox[3] - text_bbox[1] + 10
-            print(text_width, text_height)
 
             textbox_x = min_x + (max_x - min_x) / 2 - text_width / 2
             textbox_y = min_y + (max_y - min_y) / 2 - text_height / 2
@@ -177,19 +181,21 @@ def render_frame(context, data, referents, frame_name, scene_data, out_dir):
             reference_frame = FRAME_PROPERTY_VALUES[reference_frame_id]
             referents[text_label] = (obj.name, reference_frame)
 
-        img_path_i = str(out_dir / ("%s.%02i.png" % (frame_name, i)))
+        img_name_i = "%s.%02.i.png" % (frame_name, i)
+        img_path_i = str(out_dir / img_name_i)
 
         combined = Image.alpha_composite(img, layer)
         combined.save(img_path_i, "PNG")
-        print(img_path_i)
 
         # Save referent order in companion text file.
         info_file = str(out_dir / ("%s.%02i.json" % (frame_name, i)))
         info = {
             "scene": scene_data["scene_name"],
+            "scene_data": scene_data,
+
             "frame": frame_name,
-            "frame_path": img_path,
-            "labeled_frame_path": img_path_i,
+            "frame_path": img_name,
+            "labeled_frame_path": img_name_i,
             "referents": referents
         }
 
@@ -202,6 +208,7 @@ def main(args):
         scene_data = json.load(f)
 
     scene_dir = Path(args.scene_json).parents[0]
+    out_dir = Path(args.out_dir)
 
     # Change to the Blender file's directory before loading the scene.
     # Otherwise loading of external textures can break.
@@ -212,7 +219,7 @@ def main(args):
 
     @persistent
     def load_handler(_):
-        render_images(bpy.context, bpy.data, scene_data, Path(args.out_dir))
+        render_images(bpy.context, bpy.data, scene_data, out_dir)
 
     bpy.app.handlers.load_post.append(load_handler)
 
