@@ -91,9 +91,9 @@ def clamp(x, minimum, maximum):
 
 
 def get_referents(data):
-    """Get a list of objects labeled as potential referents in the 3D scene."""
-    # return [obj for obj in objects if obj.name.startswith(prefix)]
-    return data.groups["Referents"].objects
+    """Get a list of objects labeled as potential referents in the current 3D scene."""
+    return [obj for obj in data.groups["Referents"].objects
+            if not obj.hide_render]
 
 
 def render_images(context, data, scene_data):
