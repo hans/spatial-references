@@ -2,7 +2,7 @@
 <html>
 
     <head>
-        <title>jspsych + psiturk example - simple go/no-go reaction time test</title>
+        <title>Spatial Reasoning Experiment</title>
         <script src="/static/lib/jquery-min.js" type="text/javascript"></script>
         <script src="/static/lib/underscore-min.js" type="text/javascript"></script>
         <script src="/static/lib/backbone-min.js" type="text/javascript"></script>
@@ -38,17 +38,17 @@
         var instructions_block = {
             type: "instructions",
             pages: [
-                "Welcome! We are conducting an experiment on how people use English to describe scenes from everyday life. Press any key to begin.",
+                "Welcome! We are conducting an experiment on how people use English to describe scenes from everyday life.",
+                // TODO add something motivational about science here
 
                 "<p>In this experiment, we will show you simple 3D scenes " +
                 "along with statements from an imaginary conversational partner.</p>" +
                 "<p>We'll ask you to respond to these statements by making a " +
-                "multiple-choice answer or by writing an answer in English.</p>" +
-                "<p>Speed is not a factor in this experiment. Take your time to " +
-                "answer honestly and as accurately as you can, based on your knowledge " +
-                "of English.</p>" +
-                "<p>Press any key to begin.</p>"
-            ]
+                "multiple-choice answer.</p>" +
+                "<p>Please try to make your answers accurately based on your knowledge of English.</p>" +
+                "<p><strong>There are not clear right or wrong answers on all trials.</strong> For trials where there are clear right or wrong answers, <strong>you will be rewarded</strong> for making the correct answer.</p>"
+            ],
+            show_clickable_nav: true,
         };
 
         var iti_block = {
@@ -95,6 +95,7 @@
             var experiment_blocks = [];
 
             experiment_blocks.push(instructions_block);
+            experiment_blocks.push(iti_block);
 
             experiment_blocks = experiment_blocks.concat(all_trials);
 

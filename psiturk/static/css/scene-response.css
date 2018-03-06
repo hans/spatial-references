@@ -7,3 +7,7 @@
   font-size: 18pt;
   margin-bottom: 1em;
 }
+
+#scene-stimulus {
+  max-width: 750px;
+}
