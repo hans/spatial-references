@@ -5,7 +5,7 @@
     "ground": "the television",
 
     "prompts": {
-        "pick": "My friend {name} is standing {relation} {ground}. Which one is {name}?",
+        "pick": "I'm looking for my friend. He is the one who is standing {relation} {ground}. Which is my friend?",
         "count": "How many people are standing {relation} {ground}?"
     }
 }

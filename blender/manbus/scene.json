@@ -1,0 +1,11 @@
+{
+    "scene_name": "manbus",
+    "scene_file": "manbus.blend",
+    "relations": ["in front of", "near"],
+    "ground": "the bus",
+
+    "prompts": {
+        "pick": "I'm looking for my friend. He is the one standing {relation} {ground}. Which one is my friend?",
+        "count": "How many people are standing {relation} {ground}?"
+    }
+}

@@ -1,0 +1,90 @@
+# Blender MTL File: 'walking man.blend'
+# Material Count: 8
+
+newmtl arms
+Ns 96.078431
+Ka 1.000000 1.000000 1.000000
+Kd 0.651420 0.449421 0.433510
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 1
+
+newmtl head
+Ns 17.647059
+Ka 1.000000 1.000000 1.000000
+Kd 0.651242 0.568105 0.505752
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 1
+map_Kd C:/Users/piers/Pictures/blender/jeans/jeans.png
+map_Bump -bm 0.010000 C:/Users/piers/Pictures/blender/mannequin/head skin bump.png
+
+newmtl head_t_shirt.003
+Ns 17.647059
+Ka 1.000000 1.000000 1.000000
+Kd 0.651242 0.568105 0.505752
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 1
+map_Kd C:/Users/piers/Pictures/blender/t shirt/t shirt.png
+map_Bump -bm 0.010000 C:/Users/piers/Pictures/blender/mannequin/head skin bump.png
+
+newmtl jeans
+Ns 96.078431
+Ka 1.000000 1.000000 1.000000
+Kd 0.010286 0.027508 0.080284
+Ks 0.010000 0.010000 0.010000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd C:/Users/piers/Pictures/blender/jeans/jeans.png
+map_Bump -bm 0.280000 C:/Users/piers/Pictures/blender/mannequin/jeans/jeans_bump.png
+
+newmtl shirt
+Ns 96.078431
+Ka 1.000000 1.000000 1.000000
+Kd 0.696296 0.500302 0.232099
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 1
+map_Kd C:/Users/piers/Pictures/blender/t shirt/t shirt.png
+
+newmtl shirt_NONE
+Ns 96.078431
+Ka 1.000000 1.000000 1.000000
+Kd 0.696296 0.500302 0.232099
+Ks 0.000000 0.000000 0.000000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 1
+
+newmtl shoes
+Ns 115.686275
+Ka 1.000000 1.000000 1.000000
+Kd 0.018781 0.015609 0.011268
+Ks 0.158239 0.158239 0.158239
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 2
+map_Kd C:/Users/piers/Pictures/blender/jeans/jeans.png
+
+newmtl shoes_NONE
+Ns 115.686275
+Ka 1.000000 1.000000 1.000000
+Kd 0.018781 0.015609 0.011268
+Ks 0.158239 0.158239 0.158239
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 2
