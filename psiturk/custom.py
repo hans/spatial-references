@@ -1,3 +1,4 @@
+import itertools
 import json
 from pathlib2 import Path
 import random
@@ -25,17 +26,26 @@ MALE_NAMES = ["Oliver", "Harry", "Jack", "Noah", "George", "Charlie",
 
 ENABLED_SCENES = [
     "mancar",
-    #"mantv",
+    "mantv",
+    "manbus",
 ]
 
 
 def sample_stimuli(n, stimuli_path=RENDER_PATH):
-    choices = ENABLED_SCENES
+    all_scenes = set(ENABLED_SCENES)
+    choices = {scene: set(Path(stimuli_path).glob("%s-*.json" % scene))
+               for scene in all_scenes}
 
     ret = []
-    for scene in random.sample(choices, min(n, len(choices))):
-        frame_choices = list(Path(stimuli_path).glob("%s-*.json" % scene))
-        json_path = random.choice(frame_choices)
+    last_scene = None
+    for _ in range(n):
+        # Choose any scene randomly, as long as it isn't the same as the
+        # previous scene.
+        scene = random.choice(all_scenes - set([last_scene]))
+
+        remaining_frames = choices[scene]
+        json_path = random.choice(remaining_frames)
+        remaining_frames.remove(json_path)
 
         with open(str(json_path), "r") as f:
             data = json.load(f)
@@ -47,7 +57,7 @@ def sample_stimuli(n, stimuli_path=RENDER_PATH):
 
 @custom_code.route("/stimuli", methods=["GET"])
 def get_stimuli():
-    n_samples = 10
+    n_samples = 8
     male_names = random.sample(MALE_NAMES, n_samples)
 
     ret = []
