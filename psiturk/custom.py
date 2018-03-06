@@ -41,10 +41,11 @@ def sample_stimuli(n, stimuli_path=RENDER_PATH):
     for _ in range(n):
         # Choose any scene randomly, as long as it isn't the same as the
         # previous scene.
-        scene = random.choice(all_scenes - set([last_scene]))
+        scene = random.choice(list(all_scenes - set([last_scene])))
+        last_scene = scene
 
         remaining_frames = choices[scene]
-        json_path = random.choice(remaining_frames)
+        json_path = random.choice(list(remaining_frames))
         remaining_frames.remove(json_path)
 
         with open(str(json_path), "r") as f:
@@ -57,7 +58,7 @@ def sample_stimuli(n, stimuli_path=RENDER_PATH):
 
 @custom_code.route("/stimuli", methods=["GET"])
 def get_stimuli():
-    n_samples = 8
+    n_samples = 12
     male_names = random.sample(MALE_NAMES, n_samples)
 
     ret = []
