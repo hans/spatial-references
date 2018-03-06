@@ -20,10 +20,6 @@ custom_code = Blueprint("custom_code", __name__, template_folder="templates", st
 RENDER_PATH = "../blender/out"
 
 
-MALE_NAMES = ["Oliver", "Harry", "Jack", "Noah", "George", "Charlie",
-              "Jacob", "Fred", "Oscar", "Leo", "Thomas"]
-
-
 ENABLED_SCENES = [
     "mancar",
     "mantv",
@@ -59,17 +55,15 @@ def sample_stimuli(n, stimuli_path=RENDER_PATH):
 @custom_code.route("/stimuli", methods=["GET"])
 def get_stimuli():
     n_samples = 12
-    male_names = random.sample(MALE_NAMES, n_samples)
 
     ret = []
-    for stim, male_name in zip(sample_stimuli(n_samples), male_names):
+    for stim in sample_stimuli(n_samples):
         meta = stim["scene_data"]
         relation = random.choice(meta["relations"])
 
         prompt_type = random.choice(meta["prompts"].keys())
         prompt = meta["prompts"][prompt_type]
-        prompt = prompt.format(relation=relation, ground=meta["ground"],
-                               name=random.choice(MALE_NAMES))
+        prompt = prompt.format(relation=relation, ground=meta["ground"])
 
         ret.append({
             "scene": stim["scene"],
