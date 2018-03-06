@@ -51,6 +51,13 @@
             ]
         };
 
+        var iti_block = {
+            type: "html-keyboard-response",
+            stimulus: "<div style='font-size: 20pt;'>Please wait&hellip;</div>",
+            choices: jsPsych.NO_KEYS,
+            trial_duration: 1000,
+        };
+
         var comments_block = {
             type: "survey-text",
             preamble: "Thanks for participating in our study. If you have any comments, please let us know in the form below.",
@@ -63,13 +70,15 @@
 
         var setup_experiment = function(stimuli) {
             var test_stimuli = $.map(stimuli, function(stim) {
-                return {
+                var scene_block = {
                     type: "scene-choice",
                     data: stim,
-                }
+                };
+                return [scene_block, iti_block];
             });
 
-            var all_trials = test_stimuli; //jsPsych.randomization.repeat(test_stimuli, 10, true);
+            var all_trials = Array.prototype.concat.apply([], test_stimuli);
+            console.log(all_trials);
 
             /* debrief block */
 
