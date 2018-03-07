@@ -1,13 +1,13 @@
 [HIT Configuration]
 title = Spatial Language Experiment
-description = Respond as quickly as you can
-amt_keywords = Perception, Psychology, experiment
+description = Respond to questions about everyday scenes
+amt_keywords = language, psychology, experiment, space, spatial
 lifetime = 24
 us_only = true
 approve_requirement = 95
-contact_email_on_error = youremail@gmail.com
-ad_group = jspsych simple experiment example
-psiturk_keywords = reaction time
+contact_email_on_error = jon@gauthiers.net
+ad_group = spatial language
+psiturk_keywords = spatial language
 organization_name = Massachusetts Institute of Technology
 browser_exclude_rule = MSIE, mobile, tablet
 
