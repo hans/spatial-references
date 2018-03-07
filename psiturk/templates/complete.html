@@ -5,6 +5,14 @@
 		<title>Psychology Experiment</title>
 		<link rel=stylesheet href="/static/css/bootstrap.min.css" type="text/css">
 		<link rel=stylesheet href="/static/css/style.css" type="text/css">
+		<style>
+			/* ad.html  - the ad that people view first */
+			.adlogo {
+				display: block;
+				margin: 10px auto;
+				max-width: 130px;
+			}
+		</style>
 	</head>
 	<body>
 		<div id="container-ad">
@@ -12,14 +20,14 @@
 			<div id="ad">
 				<div class="row">
 					<div class="col-xs-2">
-						<!-- REPLACE THE LOGO HERE WITH YOUR  UNIVERSITY, LAB, or COMPANY -->
-						<img id="adlogo" src="/static/images/university.png" alt="Lab Logo" />
+						<img class="adlogo" src="{{ server_location }}/static/images/mit.png" alt="Massachusetts Institute of Technology" />
+						<img class="adlogo" src="{{ server_location }}/static/images/bcs.png" alt="Department of Brain and Cognitive Sciences" />
 					</div>
 					<div class="col-xs-10">
-						<h1>Debugging task complete!</h1>
+						<h1>Task complete!</h1>
 						<hr>
 					    <div class="alert alert-warning">
-					    	If this was a real hit, the data would be saved now and the HIT submitted to AMT.
+					    	Thank you for participating. You should receive your compensation shortly.
 					    </div>
 					</div>
 			</div>
