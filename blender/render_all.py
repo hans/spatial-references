@@ -105,8 +105,10 @@ def clamp(x, minimum, maximum):
 
 def get_referents(data):
     """Get a list of objects labeled as potential referents in the current 3D scene."""
+    fakes_group = data.groups.get("Fakes")
+
     return [obj for obj in data.groups["Referents"].objects
-            if not obj.hide_render]
+            if not obj.hide_render or fakes_group in obj.users_group]
 
 
 def render_images(context, data, scene_data, out_dir):
