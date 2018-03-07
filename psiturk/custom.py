@@ -54,7 +54,7 @@ def sample_stimuli(n, stimuli_path=RENDER_PATH):
 
 @custom_code.route("/stimuli", methods=["GET"])
 def get_stimuli():
-    n_samples = 12
+    n_samples = 15
 
     ret = []
     for stim in sample_stimuli(n_samples):
