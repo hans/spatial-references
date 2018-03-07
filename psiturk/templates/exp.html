@@ -12,6 +12,7 @@
         <script src="/static/js/jspsych/plugins/jspsych-html-keyboard-response.js" type="text/javascript"></script>
         <script src="/static/js/jspsych/plugins/jspsych-call-function.js" type="text/javascript"></script>
         <script src="/static/js/jspsych/plugins/jspsych-survey-text.js" type="text/javascript"></script>
+        <script src="/static/js/jspsych/plugins/jspsych-survey-multi-choice.js" type="text/javascript"></script>
         <script src="/static/js/scene-response.js" type="text/javascript"></script>
 
         <script type="text/javascript">
@@ -51,6 +52,21 @@
             show_clickable_nav: true,
         };
 
+        var age_block = {
+            type: "survey-text",
+            preamble: "Please provide us with some demographic information.",
+            questions: [{prompt: "How old are you (in years)?"}]
+        };
+
+        var demo_block = {
+            type: "survey-multi-choice",
+            questions: [
+                {prompt: "What is your sex?", options: ["Male", "Female"]},
+                {prompt: "What is the highest level of education you have completed?", options: ["Did not complete high school", "High school/GED", "Some college", "Bachelor's degree", "Master's degree", "Ph.D."]},
+                {prompt: "Is English your first language?", options: ["Yes", "No"]}
+            ]
+        };
+
         var iti_block = {
             type: "html-keyboard-response",
             stimulus: "<div style='font-size: 20pt;'>Please wait&hellip;</div>",
@@ -60,8 +76,9 @@
 
         var comments_block = {
             type: "survey-text",
-            preamble: "Thanks for participating in our study. If you have any comments, please let us know in the form below.",
+            preamble: "Thanks for participating in our study. <strong>Click \"Finish\" to complete the experiment and receive compensation.</strong> If you have any comments, please let us know in the form below.",
             questions: [{prompt: "Do you have any comments to share with us?"}],
+            button_label: "Finish",
         };
 
         $.getJSON("/stimuli", {uniqueId: uniqueId}, function(data){
@@ -80,28 +97,19 @@
             var all_trials = Array.prototype.concat.apply([], test_stimuli);
             console.log(all_trials);
 
-            /* debrief block */
-
-            var debrief_block = {
-                type: "html-keyboard-response",
-                stimulus: function() {
-                    return "<p>You have completed the experiment. Thank you!</p>";
-                }
-            };
-
 
             /* define experiment structure */
 
             var experiment_blocks = [];
 
             experiment_blocks.push(instructions_block);
+            experiment_blocks.push(age_block);
+            experiment_blocks.push(demo_block);
             experiment_blocks.push(iti_block);
 
             experiment_blocks = experiment_blocks.concat(all_trials);
 
             experiment_blocks.push(comments_block);
-
-            experiment_blocks.push(debrief_block);
 
 
             /* start the experiment */
@@ -110,7 +118,8 @@
                 timeline: experiment_blocks,
                 on_finish: function() {
                     psiturk.saveData({
-                        success: function() { psiturk.completeHIT(); }
+                        success: function() { psiturk.completeHIT(); },
+                        error: function() { console.log("error saving data"); }
                     });
                 },
                 on_data_update: function(data) {
