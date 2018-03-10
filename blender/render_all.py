@@ -5,6 +5,7 @@ from argparse import ArgumentParser
 from collections import namedtuple
 from itertools import permutations
 import json
+import math
 import os
 from pathlib import Path
 import sys
@@ -14,7 +15,8 @@ from tqdm import tqdm, trange
 
 import bpy
 from bpy.app.handlers import persistent
-from mathutils import Vector
+from mathutils import Vector, Euler
+from mathutils.noise import random
 
 
 Box = namedtuple("Box", ["min_x", "min_y", "max_x", "max_y"])
@@ -109,6 +111,26 @@ def get_referents(data):
 
     return [obj for obj in data.groups["Referents"].objects
             if not obj.hide_render or fakes_group in obj.users_group]
+
+
+def randomize_position(obj, guide):
+    """
+    Randomize the position of an object `obj` along some linear guide path `guide`.
+    """
+    guide_points = guide.data.splines.active.points
+    p1, p2 = guide_points[0], guide_points[-1]
+
+    # Convert to scene coordinates and remove 4th dimension (what is this?)
+    p1 = Vector((guide.matrix_world * p1)[:3])
+    p2 = Vector((guide.matrix_world * p2)[:3])
+
+    t = random()
+    obj.location = p1 + t * (p2 - p1)
+
+
+def randomize_rotation(obj, bounds=(0, 2 * math.pi)):
+    rot = obj.rotation_euler
+    obj.rotation_euler = Euler((rot.x, rot.y, bounds[0] + random() * (bounds[1] - bounds[0])), "XYZ")
 
 
 def render_images(context, data, scene_data, out_dir):
