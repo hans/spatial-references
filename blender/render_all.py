@@ -3,11 +3,12 @@ sys.path.append("/home/jon/anaconda3/lib/python3.6/site-packages")
 
 from argparse import ArgumentParser
 from collections import namedtuple
-from itertools import permutations
+import itertools
 import json
 import math
 import os
 from pathlib import Path
+import random
 import sys
 
 from PIL import Image, ImageDraw, ImageFont
@@ -16,18 +17,9 @@ from tqdm import tqdm, trange
 import bpy
 from bpy.app.handlers import persistent
 from mathutils import Vector, Euler
-from mathutils.noise import random
 
 
 Box = namedtuple("Box", ["min_x", "min_y", "max_x", "max_y"])
-
-
-FRAME_PROPERTY_VALUES = {
-    0: None,
-    1: "relative",
-    2: "intrinsic",
-    3: "functional"
-}
 
 
 def camera_view_bounds_2d(scene, cam_ob, me_ob):
@@ -113,126 +105,183 @@ def get_referents(data):
             if not obj.hide_render or fakes_group in obj.users_group]
 
 
+def get_people(data):
+    """Get a list of objects labeled as people in the current 3D scene."""
+    return data.groups["People"].objects
+
+
+def get_guides(data):
+    """Get a list of objects labeled as frame guides in the current 3D scene."""
+    return data.groups["Frames"].objects
+
+
+def get_guide_type(guide):
+    """Get the reference frame type corresponding to a particular guide."""
+    # Maintained by naming convention in the Blender files. Sub-optimal.
+    try:
+        return guide.name[guide.name.rindex(".") + 1:]
+    except:
+        return None
+
+
 def randomize_position(obj, guide):
     """
     Randomize the position of an object `obj` along some linear guide path `guide`.
     """
     guide_points = guide.data.splines.active.points
-    p1, p2 = guide_points[0], guide_points[-1]
+    p1, p2 = guide_points[0].co, guide_points[-1].co
 
     # Convert to scene coordinates and remove 4th dimension (what is this?)
     p1 = Vector((guide.matrix_world * p1)[:3])
     p2 = Vector((guide.matrix_world * p2)[:3])
 
-    t = random()
-    obj.location = p1 + t * (p2 - p1)
+    t = random.random()
+    target_point = p1 + t * (p2 - p1)
+
+    # update X and Y coordinates.
+    obj.location[0] = target_point[0]
+    obj.location[1] = target_point[1]
 
 
 def randomize_rotation(obj, bounds=(0, 2 * math.pi)):
     rot = obj.rotation_euler
-    obj.rotation_euler = Euler((rot.x, rot.y, bounds[0] + random() * (bounds[1] - bounds[0])), "XYZ")
+    obj.rotation_euler = Euler((rot.x, rot.y,
+                                bounds[0] + random.random() * (bounds[1] - bounds[0])),
+                               "XYZ")
 
 
-def render_images(context, data, scene_data, out_dir):
+def prepare_scene(data, people_setting):
+    """
+    Move people referents to random positions in the given reference frames.
+
+    `people_setting` is of the form `[(person, guide_path), (person2, guide_path), ...]`
+    """
+    for person, guide in people_setting.items():
+        randomize_position(person, guide)
+
+        rotation_bounds = (0, 2 * math.pi)
+        if get_guide_type(guide) == "functional":
+            # Functional frames are very angle-dependent -- we don't expect
+            # them to hold for > 90 deg rotations. They probably won't hold for
+            # even > 45 deg rotations -- but we should check :)
+            rotation_bounds = (-math.pi / 4, math.pi / 4)
+        randomize_rotation(person, bounds=rotation_bounds)
+
+        person.hide_render = False
+
+    for person in set(get_people(data)) - set(people_setting.keys()):
+        person.hide_render = True
+
+
+def render_images(context, data, scene_data, out_dir, samples_per_setting=5):
     scene = context.scene
     camera = scene.camera
 
     scene.render.image_settings.file_format = "PNG"
 
-    for frame in trange(scene.frame_start, scene.frame_end + 1, desc="Rendering frames"):
-        scene.frame_set(frame)
-        frame_name = "%s-%02i" % (scene_data["scene_name"], frame)
-        render_frame(context, data, get_referents(data), frame_name, scene_data, out_dir)
+    people = get_people(data)
+    frame_guides = get_guides(data)
+
+    i = 0
+    for n_people in range(1, len(people) + 1):
+        for people_set in itertools.combinations(people, n_people):
+            for frames_ordered in itertools.permutations(frame_guides, n_people):
+                for _ in range(samples_per_setting):
+                    people_setting = dict(zip(people_set, frames_ordered))
+                    prepare_scene(data, people_setting)
+
+                    frame_name = "%s.%02i" % (scene_data["scene_name"], i)
+                    render_frame(scene, data, frame_name, people_setting, scene_data, out_dir)
+
+                    i += 1
 
 
-def render_frame(context, data, referents, frame_name, scene_data, out_dir):
+def render_frame(scene, data, frame_name, people_setting, scene_data, out_dir):
+    referents = get_referents(data)
+    random.shuffle(referents)
 
-    # Output Blender render.
+    # Output Blender render without labels.
     img_name = "%s.png" % frame_name
     img_path = str(out_dir / img_name)
-    context.scene.render.filepath = img_path
+    scene.render.filepath = img_path
     bpy.ops.render.render(write_still=True)
 
     img = Image.open(img_path).convert("RGBA")
 
-    for i, ordered_referents in tqdm(enumerate(permutations(referents)), desc="Rendering permutations"):
-        bboxes = [camera_view_bounds_2d(context.scene, context.scene.camera, obj)
-                  for obj in ordered_referents]
+    # Prepare a new layer which will contain reference labels.
+    layer = Image.new("RGBA", img.size, (255, 255, 255, 0))
+    draw = ImageDraw.Draw(layer)
+    width, height = img.size
 
-        # Draw reference names on a new layer.
-        layer = Image.new("RGBA", img.size, (255, 255, 255, 0))
-        draw = ImageDraw.Draw(layer)
-        width, height = img.size
+    # Get 2D bounding boxes in image of each referent.
+    bboxes = [camera_view_bounds_2d(scene, scene.camera, obj)
+              for obj in referents]
 
-        # # DEV: draw bounding boxes.
-        # for bbox in bboxes:
-        #     min_x, min_y, max_x, max_y = bbox
-        #     draw.rectangle(((min_x * width, height - min_y * height),
-        #                     (max_x * width, height - max_y * height)), outline="black")
+    # # DEV: draw bounding boxes.
+    # for bbox in bboxes:
+    #     min_x, min_y, max_x, max_y = bbox
+    #     draw.rectangle(((min_x * width, height - min_y * height),
+    #                     (max_x * width, height - max_y * height)), outline="black")
 
-        # Draw text labels.
-        referents = {}
-        font = ImageFont.truetype("arial", size=26)
-        for j, (bbox, obj) in enumerate(zip(bboxes, ordered_referents)):
-            min_x, min_y, max_x, max_y = bbox
-            min_x *= width
-            max_x *= width
-            min_y = (1 - min_y) * height
-            max_y = (1 - max_y) * height
+    # Draw text labels.
+    referent_data = {}
+    font = ImageFont.truetype("arial", size=26)
+    for j, (bbox, obj) in enumerate(zip(bboxes, referents)):
+        min_x, min_y, max_x, max_y = bbox
+        min_x *= width
+        max_x *= width
+        min_y = (1 - min_y) * height
+        max_y = (1 - max_y) * height
 
-            # Calculate text bbox and center.
-            text_label = chr(65 + j)
-            text_bbox = font.getmask(text_label).getbbox()
+        # Calculate text bbox and center.
+        text_label = chr(65 + j)
+        text_bbox = font.getmask(text_label).getbbox()
 
-            text_width = text_bbox[2] - text_bbox[0]
-            text_height = text_bbox[3] - text_bbox[1] + 10
+        text_width = text_bbox[2] - text_bbox[0]
+        text_height = text_bbox[3] - text_bbox[1] + 10
 
-            textbox_x = min_x + (max_x - min_x) / 2 - text_width / 2
-            textbox_y = min_y + (max_y - min_y) / 2 - text_height / 2
+        textbox_x = min_x + (max_x - min_x) / 2 - text_width / 2
+        textbox_y = min_y + (max_y - min_y) / 2 - text_height / 2
 
-            draw.rectangle([(textbox_x, textbox_y), (textbox_x + text_width, textbox_y + text_height)],
-                           fill=(0, 0, 0, 100))
-            draw.text((textbox_x, textbox_y), text_label, fill="white",
-                      font=font)
+        draw.rectangle([(textbox_x, textbox_y), (textbox_x + text_width, textbox_y + text_height)],
+                       fill=(0, 0, 0, 100))
+        draw.text((textbox_x, textbox_y), text_label, fill="white",
+                  font=font)
 
-            try:
-                obj_data = data.meshes[obj.name]
-                reference_frame_id = obj_data.get("frame", 0)
-            except KeyError:
-                # not all referents have reference frame data
-                reference_frame_id = 0
+        reference_frame = None
+        if obj in people_setting:
+            reference_frame = get_guide_type(people_setting[obj])
 
-            reference_frame = FRAME_PROPERTY_VALUES[reference_frame_id]
-            referents[text_label] = (obj.name, reference_frame)
+        referent_data[text_label] = (obj.name, reference_frame)
 
-        img_name_i = "%s.%02.i.png" % (frame_name, i)
-        img_path_i = str(out_dir / img_name_i)
+    labeled_img_name = "%s.labeled.png" % frame_name
+    labeled_img_path = str(out_dir / labeled_img_name)
 
-        combined = Image.alpha_composite(img, layer)
-        combined.save(img_path_i, "PNG")
+    combined = Image.alpha_composite(img, layer)
+    combined.save(labeled_img_path, "PNG")
 
-        # Save referent order in companion text file.
-        info_file = str(out_dir / ("%s.%02i.json" % (frame_name, i)))
-        info = {
-            "scene": scene_data["scene_name"],
-            "scene_data": scene_data,
+    # Save referent order in companion text file.
+    info_file = str(out_dir / ("%s.json" % frame_name))
+    info = {
+        "scene": scene_data["scene_name"],
+        "scene_data": scene_data,
 
-            "frame": frame_name,
-            "frame_path": img_name,
-            "labeled_frame_path": img_name_i,
-            "referents": referents
-        }
+        "frame": frame_name,
+        "frame_path": img_name,
+        "labeled_frame_path": labeled_img_name,
+        "referents": referent_data
+    }
 
-        with open(info_file, "w") as info_f:
-            json.dump(info, info_f)
+    with open(info_file, "w") as info_f:
+        json.dump(info, info_f)
 
 
 def main(args):
     with open(args.scene_json, "r") as f:
         scene_data = json.load(f)
 
-    scene_dir = Path(args.scene_json).parents[0]
-    out_dir = Path(args.out_dir)
+    scene_dir = Path(args.scene_json).parents[0].absolute()
+    out_dir = Path(args.out_dir).absolute()
 
     # Change to the Blender file's directory before loading the scene.
     # Otherwise loading of external textures can break.
