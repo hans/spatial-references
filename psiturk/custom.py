@@ -67,7 +67,7 @@ SCENE_DATA = load_scenes(["mancar"])
 
 @custom_code.route("/stimuli", methods=["GET"])
 def get_stimuli():
-    n_samples = 15
+    n_samples = 7
 
     filler_idxs = random.sample(list(range(n_samples)), FILLER_PROPORTION * n_samples)
 
