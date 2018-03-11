@@ -145,9 +145,10 @@ def randomize_position(obj, guide):
 
 def randomize_rotation(obj, bounds=(0, 2 * math.pi)):
     rot = obj.rotation_euler
-    obj.rotation_euler = Euler((rot.x, rot.y,
-                                bounds[0] + random.random() * (bounds[1] - bounds[0])),
-                               "XYZ")
+
+    dz = bounds[0] + random.random() * (bounds[1] - bounds[0])
+    z = rot.z + dz % (2 * math.pi)
+    obj.rotation_euler = Euler((rot.x, rot.y, z), "XYZ")
 
 
 def prepare_scene(data, people_setting):
@@ -232,6 +233,10 @@ def render_frame(scene, data, frame_name, people_setting, scene_data, out_dir):
         max_x *= width
         min_y = (1 - min_y) * height
         max_y = (1 - max_y) * height
+
+        # Shift up labels by default.
+        min_y -= 40
+        max_y -= 40
 
         # Calculate text bbox and center.
         text_label = chr(65 + j)
