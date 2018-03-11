@@ -2,7 +2,7 @@ import sys
 sys.path.append("/home/jon/anaconda3/lib/python3.6/site-packages")
 
 from argparse import ArgumentParser
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 import itertools
 import json
 import math
@@ -142,13 +142,17 @@ def randomize_position(obj, guide):
     obj.location[0] = target_point[0]
     obj.location[1] = target_point[1]
 
+    return t
 
-def randomize_rotation(obj, bounds=(0, 2 * math.pi)):
+
+def randomize_rotation(obj, bounds=(-math.pi, math.pi)):
     rot = obj.rotation_euler
 
     dz = bounds[0] + random.random() * (bounds[1] - bounds[0])
     z = rot.z + dz % (2 * math.pi)
     obj.rotation_euler = Euler((rot.x, rot.y, z), "XYZ")
+
+    return dz
 
 
 def prepare_scene(data, people_setting):
@@ -157,21 +161,27 @@ def prepare_scene(data, people_setting):
 
     `people_setting` is of the form `[(person, guide_path), (person2, guide_path), ...]`
     """
+    manipulations = defaultdict(dict)
     for person, guide in people_setting.items():
-        randomize_position(person, guide)
+        m_pos = randomize_position(person, guide)
 
-        rotation_bounds = (0, 2 * math.pi)
+        rotation_bounds = (-math.pi, math.pi)
         if get_guide_type(guide) == "functional":
             # Functional frames are very angle-dependent -- we don't expect
             # them to hold for > 90 deg rotations. They probably won't hold for
             # even > 45 deg rotations -- but we should check :)
             rotation_bounds = (-math.pi / 4, math.pi / 4)
-        randomize_rotation(person, bounds=rotation_bounds)
+        m_rot = randomize_rotation(person, bounds=rotation_bounds)
+
+        manipulations[person]["location"] = m_pos
+        manipulations[person]["rotation"] = m_rot
 
         person.hide_render = False
 
     for person in set(get_people(data)) - set(people_setting.keys()):
         person.hide_render = True
+
+    return dict(manipulations)
 
 
 def render_images(context, data, scene_data, out_dir, samples_per_setting=5):
@@ -189,7 +199,6 @@ def render_images(context, data, scene_data, out_dir, samples_per_setting=5):
             for frames_ordered in itertools.permutations(frame_guides, n_people):
                 for _ in range(samples_per_setting):
                     people_setting = dict(zip(people_set, frames_ordered))
-                    prepare_scene(data, people_setting)
 
                     frame_name = "%s.%02i" % (scene_data["scene_name"], i)
                     render_frame(scene, data, frame_name, people_setting, scene_data, out_dir)
@@ -198,6 +207,8 @@ def render_images(context, data, scene_data, out_dir, samples_per_setting=5):
 
 
 def render_frame(scene, data, frame_name, people_setting, scene_data, out_dir):
+    manipulations = prepare_scene(data, people_setting)
+
     referents = get_referents(data)
     random.shuffle(referents)
 
@@ -257,7 +268,11 @@ def render_frame(scene, data, frame_name, people_setting, scene_data, out_dir):
         if obj in people_setting:
             reference_frame = get_guide_type(people_setting[obj])
 
-        referent_data[text_label] = (obj.name, reference_frame)
+        referent_data[text_label] = {
+            "name": obj.name,
+            "reference_frame": reference_frame,
+            "manipulations": manipulations.get(obj, {})
+        }
 
     labeled_img_name = "%s.labeled.png" % frame_name
     labeled_img_path = str(out_dir / labeled_img_name)
