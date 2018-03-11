@@ -1,3 +1,4 @@
+from collections import defaultdict
 import itertools
 import json
 from pathlib2 import Path
@@ -19,48 +20,75 @@ custom_code = Blueprint("custom_code", __name__, template_folder="templates", st
 
 RENDER_PATH = "../blender/out"
 
-
-ENABLED_SCENES = [
-    "mancar",
-]
+FILLER_PROPORTION = 2 / 7
 
 
-def sample_stimuli(n, stimuli_path=RENDER_PATH):
-    all_scenes = set(ENABLED_SCENES)
-    choices = {scene: set(Path(stimuli_path).glob("%s.*.json" % scene))
-               for scene in all_scenes}
+def load_scenes(scenes):
+    ret = defaultdict(dict)
+    for scene in scenes:
+        for path in Path(RENDER_PATH).glob("%s.*.json" % scene):
+            with path.open("r") as frame_f:
+                data = json.load(frame_f)
+                ret[scene][data["frame"]] = data
+
+    return dict(ret)
+
+
+def get_humans(frame_data):
+    return [ref for ref in frame_data["referents"].values() if ref["reference_frame"] is not None]
+
+
+def sample_stimuli(n, scene_data):
+    choices = {scene: set(frames.keys()) for scene, frames in SCENE_DATA.items()}
 
     ret = []
     last_scene = None
     for _ in range(n):
-        # # Choose any scene randomly, as long as it isn't the same as the
-        # # previous scene.
-        # scene = random.choice(list(all_scenes - set([last_scene])))
-        # last_scene = scene
-        scene = random.choice(list(all_scenes))
+        frame_data = None
+        while frame_data is None:
+            scene = random.choice(choices.keys())
+            remaining_frames = choices[scene]
+            frame_name = random.choice(list(remaining_frames))
+            frame_data_tmp = SCENE_DATA[scene][frame_name]
 
-        remaining_frames = choices[scene]
-        json_path = random.choice(list(remaining_frames))
-        remaining_frames.remove(json_path)
+            # Bias samples to favor scenes with two people.
+            if len(get_humans(frame_data_tmp)) < 2 and random.random() < 0.75:
+                continue
+            frame_data = frame_data_tmp
 
-        with open(str(json_path), "r") as f:
-            data = json.load(f)
-
-        ret.append(data)
+        ret.append(frame_data)
+        remaining_frames.remove(frame_name)
 
     return ret
+
+
+SCENE_DATA = load_scenes(["mancar"])
 
 
 @custom_code.route("/stimuli", methods=["GET"])
 def get_stimuli():
     n_samples = 15
 
-    ret = []
-    for stim in sample_stimuli(n_samples):
-        meta = stim["scene_data"]
-        relation = random.choice(meta["relations"])
+    filler_idxs = random.sample(list(range(n_samples)), FILLER_PROPORTION * n_samples)
 
-        prompt_type = random.choice(meta["prompts"].keys())
+    ret = []
+    for i, stim in enumerate(sample_stimuli(n_samples, SCENE_DATA)):
+        is_filler = i in filler_idxs
+        meta = stim["scene_data"]
+
+        relation, prompt_type = None, None
+        if is_filler:
+            relation = "near"
+            if len(get_humans(meta)) == 1:
+                prompt_type = random.choice(["pick", "count"])
+            else:
+                prompt_type = "count"
+        else:
+            # Rejection-sample a non-filler.
+            while relation is None or (relation == "near" and prompt_type == "count"):
+                relation = random.choice(meta["relations"])
+                prompt_type = random.choice(meta["prompts"].keys())
+
         prompt = meta["prompts"][prompt_type]
         prompt = prompt.format(relation=relation, ground=meta["ground"])
 
