@@ -22,23 +22,22 @@ RENDER_PATH = "../blender/out"
 
 ENABLED_SCENES = [
     "mancar",
-    "mantv",
-    "manbus",
 ]
 
 
 def sample_stimuli(n, stimuli_path=RENDER_PATH):
     all_scenes = set(ENABLED_SCENES)
-    choices = {scene: set(Path(stimuli_path).glob("%s-*.json" % scene))
+    choices = {scene: set(Path(stimuli_path).glob("%s.*.json" % scene))
                for scene in all_scenes}
 
     ret = []
     last_scene = None
     for _ in range(n):
-        # Choose any scene randomly, as long as it isn't the same as the
-        # previous scene.
-        scene = random.choice(list(all_scenes - set([last_scene])))
-        last_scene = scene
+        # # Choose any scene randomly, as long as it isn't the same as the
+        # # previous scene.
+        # scene = random.choice(list(all_scenes - set([last_scene])))
+        # last_scene = scene
+        scene = random.choice(list(all_scenes))
 
         remaining_frames = choices[scene]
         json_path = random.choice(list(remaining_frames))
