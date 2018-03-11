@@ -308,7 +308,7 @@ def main(args):
     #
     # This also allows the scene JSON files to use relative paths to
     # the Blender files.
-    os.chdir(scene_dir)
+    os.chdir(str(scene_dir))
 
     @persistent
     def load_handler(_):
