@@ -312,7 +312,11 @@ if __name__ == '__main__':
 
     p = ArgumentParser()
 
-    p.add_argument("scene_json")
+    p.add_argument("scene_json", nargs="?", default=None)
     p.add_argument("-o", "--out_dir", default=os.getcwd())
 
-    main(p.parse_args(argv))
+    args = p.parse_args(argv)
+    if not args or not args.scene_json:
+        print("---------- NOT RUNNING: No scene.json argument provided")
+    else:
+        main(args)
