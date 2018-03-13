@@ -1,0 +1,11 @@
+{
+    "scene_name": "boxcar",
+    "scene_file": "boxcar.blend",
+    "relations": ["in front of", "near"],
+    "ground": "the car",
+
+    "prompts": {
+        "pick": "I'm looking for the pile of boxes that is {relation} {ground}. Which is the pile that I'm looking for?",
+        "count": "How many boxes are {relation} {ground}?"
+    }
+}
