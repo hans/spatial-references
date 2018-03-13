@@ -98,7 +98,9 @@ def clamp(x, minimum, maximum):
 
 
 def get_referents(data):
-    """Get a list of objects labeled as potential referents in the current 3D scene."""
+    """Get a list of objects labeled as potential referents in the current 3D scene.
+
+    Referents are live candidates or distractors (e.g. walls)."""
     fakes_group = data.groups.get("Fakes")
 
     return [obj for obj in data.groups["Referents"].objects
@@ -108,6 +110,10 @@ def get_referents(data):
 def get_candidates(data):
     """Get a list of objects labeled as candidates in the current 3D scene."""
     return data.groups["Candidates"].objects
+
+
+def get_children(data, obj):
+    return [obj2 for obj2 in data.objects if obj2.parent == obj]
 
 
 def get_guides(data):
@@ -209,8 +215,21 @@ def render_images(context, data, scene_data, out_dir, samples_per_setting=5):
 def render_frame(scene, data, frame_name, candidates_setting, scene_data, out_dir):
     manipulations = prepare_scene(data, candidates_setting)
 
+    # Get referents in scene.
+    # This should be a superset of the candidates in the scene -- it includes
+    # candidates and also distractors (e.g. walls).
     referents = get_referents(data)
     random.shuffle(referents)
+
+    # Some referents specify custom label positions. Load those if necessary;
+    # otherwise use the referent to position the label.
+    label_targets = []
+    for referent in referents:
+        children = get_children(data, referent)
+        if len(children) == 1 and children[0].name.endswith("target"):
+            label_targets.append(children[0])
+        else:
+            label_targets.append(referent)
 
     # Output Blender render without labels.
     img_name = "%s.png" % frame_name
@@ -226,8 +245,8 @@ def render_frame(scene, data, frame_name, candidates_setting, scene_data, out_di
     width, height = img.size
 
     # Get 2D bounding boxes in image of each referent.
-    bboxes = [camera_view_bounds_2d(scene, scene.camera, obj)
-              for obj in referents]
+    bboxes = [camera_view_bounds_2d(scene, scene.camera, label_target)
+              for label_target in label_targets]
 
     # # DEV: draw bounding boxes.
     # for bbox in bboxes:
