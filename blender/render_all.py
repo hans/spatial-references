@@ -273,7 +273,7 @@ def render_frame(scene, data, frame_name, candidates_setting, scene_data, out_di
         text_bbox = font.getmask(text_label).getbbox()
 
         text_width = text_bbox[2] - text_bbox[0]
-        text_height = text_bbox[3] - text_bbox[1] + 10
+        text_height = text_bbox[3] - text_bbox[1]
 
         textbox_x = min_x + (max_x - min_x) / 2 - text_width / 2
         textbox_y = min_y + (max_y - min_y) / 2 - text_height / 2
