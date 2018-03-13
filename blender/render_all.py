@@ -105,9 +105,9 @@ def get_referents(data):
             if not obj.hide_render or fakes_group in obj.users_group]
 
 
-def get_people(data):
-    """Get a list of objects labeled as people in the current 3D scene."""
-    return data.groups["People"].objects
+def get_candidates(data):
+    """Get a list of objects labeled as candidates in the current 3D scene."""
+    return data.groups["Candidates"].objects
 
 
 def get_guides(data):
@@ -155,14 +155,14 @@ def randomize_rotation(obj, bounds=(-math.pi, math.pi)):
     return dz
 
 
-def prepare_scene(data, people_setting):
+def prepare_scene(data, candidate_setting):
     """
-    Move people referents to random positions in the given reference frames.
+    Move candidate referents to random positions in the given reference frames.
 
-    `people_setting` is of the form `[(person, guide_path), (person2, guide_path), ...]`
+    `candidate_setting` is of the form `[(person, guide_path), (person2, guide_path), ...]`
     """
     manipulations = defaultdict(dict)
-    for person, guide in people_setting.items():
+    for person, guide in candidate_setting.items():
         m_pos = randomize_position(person, guide)
 
         rotation_bounds = (-math.pi, math.pi)
@@ -178,7 +178,7 @@ def prepare_scene(data, people_setting):
 
         person.hide_render = False
 
-    for person in set(get_people(data)) - set(people_setting.keys()):
+    for person in set(get_candidates(data)) - set(candidate_setting.keys()):
         person.hide_render = True
 
     return dict(manipulations)
@@ -190,24 +190,24 @@ def render_images(context, data, scene_data, out_dir, samples_per_setting=5):
 
     scene.render.image_settings.file_format = "PNG"
 
-    people = get_people(data)
+    candidates = get_candidates(data)
     frame_guides = get_guides(data)
 
     i = 0
-    for n_people in range(1, len(people) + 1):
-        for people_set in itertools.combinations(people, n_people):
-            for frames_ordered in itertools.permutations(frame_guides, n_people):
+    for n_candidates in range(1, len(candidates) + 1):
+        for candidates_set in itertools.combinations(candidates, n_candidates):
+            for frames_ordered in itertools.permutations(frame_guides, n_candidates):
                 for _ in range(samples_per_setting):
-                    people_setting = dict(zip(people_set, frames_ordered))
+                    candidates_setting = dict(zip(candidates_set, frames_ordered))
 
                     frame_name = "%s.%02i" % (scene_data["scene_name"], i)
-                    render_frame(scene, data, frame_name, people_setting, scene_data, out_dir)
+                    render_frame(scene, data, frame_name, candidates_setting, scene_data, out_dir)
 
                     i += 1
 
 
-def render_frame(scene, data, frame_name, people_setting, scene_data, out_dir):
-    manipulations = prepare_scene(data, people_setting)
+def render_frame(scene, data, frame_name, candidates_setting, scene_data, out_dir):
+    manipulations = prepare_scene(data, candidates_setting)
 
     referents = get_referents(data)
     random.shuffle(referents)
@@ -265,8 +265,8 @@ def render_frame(scene, data, frame_name, people_setting, scene_data, out_dir):
                   font=font)
 
         reference_frame = None
-        if obj in people_setting:
-            reference_frame = get_guide_type(people_setting[obj])
+        if obj in candidates_setting:
+            reference_frame = get_guide_type(candidates_setting[obj])
 
         referent_data[text_label] = {
             "name": obj.name,
