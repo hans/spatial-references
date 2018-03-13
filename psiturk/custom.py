@@ -62,7 +62,7 @@ def sample_stimuli(n, scene_data):
     return ret
 
 
-SCENE_DATA = load_scenes(["mancar"])
+SCENE_DATA = load_scenes(["boxcar"])
 
 
 @custom_code.route("/stimuli", methods=["GET"])
