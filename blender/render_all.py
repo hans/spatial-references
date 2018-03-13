@@ -312,7 +312,8 @@ def main(args):
 
     @persistent
     def load_handler(_):
-        render_images(bpy.context, bpy.data, scene_data, out_dir)
+        render_images(bpy.context, bpy.data, scene_data, out_dir,
+                      samples_per_setting=args.samples)
 
     bpy.app.handlers.load_post.append(load_handler)
 
@@ -328,6 +329,8 @@ if __name__ == '__main__':
     p = ArgumentParser()
 
     p.add_argument("scene_json", nargs="?", default=None)
+    p.add_argument("-s", "--samples", type=int, default=5,
+                   help="Number of samples for each possible setting")
     p.add_argument("-o", "--out_dir", default=os.getcwd())
 
     args = p.parse_args(argv)
