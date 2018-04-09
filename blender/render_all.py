@@ -239,14 +239,50 @@ def render_frame(scene, data, frame_name, candidates_setting, scene_data, out_di
 
     img = Image.open(img_path).convert("RGBA")
 
+    # Get 2D bounding boxes in image of each referent.
+    bboxes = [camera_view_bounds_2d(scene, scene.camera, label_target)
+              for label_target in label_targets]
+
+    # Prepare referent data.
+    referent_data = {}
+    for i, referent in enumerate(referents):
+        label = chr(65 + i)
+
+        reference_frame = None
+        if obj in candidates_setting:
+            reference_frame = get_guide_type(candidates_setting[referent])
+
+        referent_data[label] = {
+            "name": referent.name,
+            "reference_frame": reference_frame,
+            "manipulations": manipulations.get(referent, {})
+        }
+
+    labeled_img_name = create_labeled_frame(img, bboxes, referent_data)
+    arrow_img_name = create_arrow_frame(img, bboxes, referent_data)
+
+    # Save referent order in companion text file.
+    info_file = str(out_dir / ("%s.json" % frame_name))
+    info = {
+        "scene": scene_data["scene_name"],
+        "scene_data": scene_data,
+
+        "frame": frame_name,
+        "frame_path": img_name,
+        "labeled_frame_path": labeled_img_name,
+        "arrow_frame_path": arrow_img_name,
+        "referents": referent_data
+    }
+
+    with open(info_file, "w") as info_f:
+        json.dump(info, info_f)
+
+
+def create_labeled_frame(img, bboxes, referent_data):
     # Prepare a new layer which will contain reference labels.
     layer = Image.new("RGBA", img.size, (255, 255, 255, 0))
     draw = ImageDraw.Draw(layer)
     width, height = img.size
-
-    # Get 2D bounding boxes in image of each referent.
-    bboxes = [camera_view_bounds_2d(scene, scene.camera, label_target)
-              for label_target in label_targets]
 
     # # DEV: draw bounding boxes.
     # for bbox in bboxes:
@@ -257,7 +293,7 @@ def render_frame(scene, data, frame_name, candidates_setting, scene_data, out_di
     # Draw text labels.
     referent_data = {}
     font = ImageFont.truetype("arial", size=26)
-    for j, (bbox, obj) in enumerate(zip(bboxes, referents)):
+    for j, (bbox, text_label) in enumerate(zip(bboxes, referent_data.keys())):
         min_x, min_y, max_x, max_y = bbox
         min_x *= width
         max_x *= width
@@ -269,7 +305,6 @@ def render_frame(scene, data, frame_name, candidates_setting, scene_data, out_di
         max_y -= 40
 
         # Calculate text bbox and center.
-        text_label = chr(65 + j)
         text_bbox = font.getmask(text_label).getbbox()
 
         text_width = text_bbox[2] - text_bbox[0]
@@ -283,36 +318,21 @@ def render_frame(scene, data, frame_name, candidates_setting, scene_data, out_di
         draw.text((textbox_x, textbox_y), text_label, fill="white",
                   font=font)
 
-        reference_frame = None
-        if obj in candidates_setting:
-            reference_frame = get_guide_type(candidates_setting[obj])
-
-        referent_data[text_label] = {
-            "name": obj.name,
-            "reference_frame": reference_frame,
-            "manipulations": manipulations.get(obj, {})
-        }
-
     labeled_img_name = "%s.labeled.png" % frame_name
     labeled_img_path = str(out_dir / labeled_img_name)
 
     combined = Image.alpha_composite(img, layer)
     combined.save(labeled_img_path, "PNG")
 
-    # Save referent order in companion text file.
-    info_file = str(out_dir / ("%s.json" % frame_name))
-    info = {
-        "scene": scene_data["scene_name"],
-        "scene_data": scene_data,
 
-        "frame": frame_name,
-        "frame_path": img_name,
-        "labeled_frame_path": labeled_img_name,
-        "referents": referent_data
-    }
+def create_arrow_frame(img, bboxes, referent_data):
+    # Arrow frames only apply when there is one candidate referent.
+    candidates = [r if r["reference_frame"] is not None
+                  for r in referent_data.values()]
+    if len(candidates) != 1:
+        return None
 
-    with open(info_file, "w") as info_f:
-        json.dump(info, info_f)
+    # TODO align arrow.png with top-right of bbox of candidate
 
 
 def main(args):
