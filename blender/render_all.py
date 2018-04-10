@@ -93,6 +93,22 @@ def camera_view_bounds_2d(scene, cam_ob, me_ob):
     return Box(min_x, min_y, max_x, max_y)
 
 
+def convert_bbox(bbox, width, height):
+    """
+    Convert bbox representation from `camera_view_bounds_2d` to a more standard
+    PIL-friendly representation.
+    """
+    min_x, min_y, max_x, max_y = bbox
+    # scale X axis
+    min_x *= width
+    max_x *= width
+    # invert Y axis and scale
+    min_y = (1 - min_y) * height
+    max_y = (1 - max_y) * height
+
+    return min_x, min_y, max_x, max_y
+
+
 def clamp(x, minimum, maximum):
     return max(minimum, min(x, maximum))
 
@@ -245,21 +261,22 @@ def render_frame(scene, data, frame_name, candidates_setting, scene_data, out_di
 
     # Prepare referent data.
     referent_data = {}
-    for i, referent in enumerate(referents):
+    for i, (referent, bbox) in enumerate(zip(referents, bboxes)):
         label = chr(65 + i)
 
         reference_frame = None
-        if obj in candidates_setting:
+        if referent in candidates_setting:
             reference_frame = get_guide_type(candidates_setting[referent])
 
         referent_data[label] = {
             "name": referent.name,
+            "bbox": bbox,
             "reference_frame": reference_frame,
             "manipulations": manipulations.get(referent, {})
         }
 
-    labeled_img_name = create_labeled_frame(img, bboxes, referent_data)
-    arrow_img_name = create_arrow_frame(img, bboxes, referent_data)
+    labeled_img_name = create_labeled_frame(img, referent_data, frame_name, out_dir)
+    arrow_img_name = create_arrow_frame(img, referent_data, frame_name, out_dir)
 
     # Save referent order in companion text file.
     info_file = str(out_dir / ("%s.json" % frame_name))
@@ -278,11 +295,10 @@ def render_frame(scene, data, frame_name, candidates_setting, scene_data, out_di
         json.dump(info, info_f)
 
 
-def create_labeled_frame(img, bboxes, referent_data):
+def create_labeled_frame(img, referent_data, frame_name, out_dir):
     # Prepare a new layer which will contain reference labels.
     layer = Image.new("RGBA", img.size, (255, 255, 255, 0))
     draw = ImageDraw.Draw(layer)
-    width, height = img.size
 
     # # DEV: draw bounding boxes.
     # for bbox in bboxes:
@@ -291,14 +307,9 @@ def create_labeled_frame(img, bboxes, referent_data):
     #                     (max_x * width, height - max_y * height)), outline="black")
 
     # Draw text labels.
-    referent_data = {}
     font = ImageFont.truetype("arial", size=26)
-    for j, (bbox, text_label) in enumerate(zip(bboxes, referent_data.keys())):
-        min_x, min_y, max_x, max_y = bbox
-        min_x *= width
-        max_x *= width
-        min_y = (1 - min_y) * height
-        max_y = (1 - max_y) * height
+    for text_label, referent_i in referent_data.items():
+        min_x, min_y, max_x, max_y = convert_bbox(referent_i["bbox"], *img.size)
 
         # Shift up labels by default.
         min_y -= 40
@@ -324,15 +335,41 @@ def create_labeled_frame(img, bboxes, referent_data):
     combined = Image.alpha_composite(img, layer)
     combined.save(labeled_img_path, "PNG")
 
+    return labeled_img_name
 
-def create_arrow_frame(img, bboxes, referent_data):
+
+def create_arrow_frame(img, referent_data, frame_name, out_dir):
+    layer = Image.new("RGBA", img.size, (255, 255, 255, 0))
+
     # Arrow frames only apply when there is one candidate referent.
-    candidates = [r if r["reference_frame"] is not None
-                  for r in referent_data.values()]
+    candidates = [r for r in referent_data.values()
+                  if r["reference_frame"] is not None]
     if len(candidates) != 1:
         return None
 
-    # TODO align arrow.png with top-right of bbox of candidate
+    arrow_path = Path(__file__).parent / "arrow.png"
+    arrow_img = Image.open(str(arrow_path)).convert("RGBA")
+
+    # Resize arrow relative to frame size.
+    new_width = img.size[0] // 10
+    ratio = new_width / arrow_img.size[0]
+    arrow_img = arrow_img.resize((new_width, int(ratio * arrow_img.size[1])))
+
+    # Align arrow image to top-right of bbox.
+    _, _, right, top = convert_bbox(candidates[0]["bbox"], *img.size)
+
+    # Draw.
+    dest_top = int(top - arrow_img.size[1])
+    dest_left = int(right)
+    layer.paste(arrow_img, (dest_left, dest_top))
+
+    # Composite layers and save.
+    arrow_frame_name = "%s.arrow.png" % frame_name
+    arrow_frame_path = str(out_dir / arrow_frame_name)
+    combined = Image.alpha_composite(img, layer)
+    combined.save(arrow_frame_path, "PNG")
+
+    return arrow_frame_name
 
 
 def main(args):
