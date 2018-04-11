@@ -19,7 +19,14 @@ jsPsych.plugins["scene-choice"] = (function() {
     var html = '<p class="scene-instructions">Respond to the following prompt:</p>';
     html += '<p class="scene-prompt">' + data.prompt + '</p>';
 
-    frame_path = data.prompt_type == "pick" ? data.labeled_frame_path : data.frame_path;
+    var frame_path = null;
+    if (data.prompt_type == "pick") {
+      frame_path = data.labeled_frame_path;
+    } else if (data.prompt_type == "count") {
+      frame_path = data.frame_path;
+    } else if (data.prompt_type == "confirm") {
+      frame_path = data.arrow_frame_path;
+    }
     html += '<img src="/renders/'+frame_path+'" id="scene-stimulus"></img>';
 
     //display buttons
@@ -33,8 +40,11 @@ jsPsych.plugins["scene-choice"] = (function() {
     }
 
     var choices = Object.keys(data.referents);
-    if (data.prompt_type == "count")
+    if (data.prompt_type == "count") {
       choices = count_choices(choices);
+    } else if (data.prompt_type == "confirm") {
+      choices = ["Yes", "No"]
+    }
 
     for (var i = 0; i < choices.length; i++) {
       html += '<div class="scene-choice-button" style="display: inline-block; margin: 0px 8px" id="scene-choice-button-' + i +'" data-choice="'+choices[i]+'"><button class="jspsych-btn">'+choices[i]+'</button></div>';
