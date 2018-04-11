@@ -146,10 +146,7 @@ def get_guide_type(guide):
         return None
 
 
-def randomize_position(obj, guide):
-    """
-    Randomize the position of an object `obj` along some linear guide path `guide`.
-    """
+def get_guide_endpoints(guide):
     guide_points = guide.data.splines.active.points
     p1, p2 = guide_points[0].co, guide_points[-1].co
 
@@ -157,6 +154,14 @@ def randomize_position(obj, guide):
     p1 = Vector((guide.matrix_world * p1)[:3])
     p2 = Vector((guide.matrix_world * p2)[:3])
 
+    return p1, p2
+
+
+def randomize_position(obj, guide):
+    """
+    Randomize the position of an object `obj` along some linear guide path `guide`.
+    """
+    p1, p2 = get_guide_endpoints(guide)
     t = random.random()
     target_point = p1 + t * (p2 - p1)
 
@@ -177,7 +182,30 @@ def randomize_rotation(obj, bounds=(-math.pi, math.pi)):
     return dz
 
 
-def prepare_scene(data, candidate_setting):
+def randomize_distance(obj, guide, scale_bounds=(0, 3)):
+    """
+    Center the position of an object `obj` along a linear guide path `guide`,
+    and randomize its distance on the axis perpendicular to that guide.
+    """
+    # duplicate and rotate the guide
+    # guide will rotate along its central point by default
+    guide_perp = guide.copy()
+
+    rot = guide_perp.rotation_euler
+    z = (rot.z + math.pi) % (2 * math.pi)
+    guide_perp.rotation_euler = Euler((rot.x, rot.y, z), "XYZ")
+
+    p1, p2 = get_guide_endpoints(guide_perp)
+    scale_factor = scale_bounds[0] + random.random() * (scale_bounds[1] - scale_bounds[0])
+    target_point = p1 + scale_factor * (p2 - p1)
+
+    obj.location[0] = target_point[0]
+    obj.location[1] = target_point[1]
+
+    return scale_factor
+
+
+def prepare_scene(data, candidate_setting, randomization_mode):
     """
     Move candidate referents to random positions in the given reference frames.
 
@@ -185,18 +213,22 @@ def prepare_scene(data, candidate_setting):
     """
     manipulations = defaultdict(dict)
     for person, guide in candidate_setting.items():
-        m_pos = randomize_position(person, guide)
+        if randomization_mode == "20180313":
+            m_pos = randomize_position(person, guide)
 
-        rotation_bounds = (-math.pi, math.pi)
-        if get_guide_type(guide) == "functional":
-            # Functional frames are very angle-dependent -- we don't expect
-            # them to hold for > 90 deg rotations. They probably won't hold for
-            # even > 45 deg rotations -- but we should check :)
-            rotation_bounds = (-math.pi / 4, math.pi / 4)
-        m_rot = randomize_rotation(person, bounds=rotation_bounds)
+            rotation_bounds = (-math.pi, math.pi)
+            if get_guide_type(guide) == "functional":
+                # Functional frames are very angle-dependent -- we don't expect
+                # them to hold for > 90 deg rotations. They probably won't hold for
+                # even > 45 deg rotations -- but we should check :)
+                rotation_bounds = (-math.pi / 4, math.pi / 4)
+            m_rot = randomize_rotation(person, bounds=rotation_bounds)
 
-        manipulations[person]["location"] = m_pos
-        manipulations[person]["rotation"] = m_rot
+            manipulations[person]["location"] = m_pos
+            manipulations[person]["rotation"] = m_rot
+        elif randomization_mode == "20180410":
+            m_dist = randomize_distance(person, guide)
+            manipulations[person]["distance"] = m_dist
 
         person.hide_render = False
 
@@ -206,7 +238,8 @@ def prepare_scene(data, candidate_setting):
     return dict(manipulations)
 
 
-def render_images(context, data, scene_data, out_dir, samples_per_setting=5):
+def render_images(context, data, scene_data, out_dir,
+                  randomization_mode, samples_per_setting=5):
     scene = context.scene
     camera = scene.camera
 
@@ -223,14 +256,15 @@ def render_images(context, data, scene_data, out_dir, samples_per_setting=5):
                     candidates_setting = dict(zip(candidates_set, frames_ordered))
 
                     frame_name = "%s.%02i" % (scene_data["scene_name"], i)
-                    render_frame(scene, data, frame_name, candidates_setting, scene_data, out_dir)
+                    manipulations = prepare_scene(data, candidates_setting, randomization_mode)
+                    render_frame(scene, data, manipulations, frame_name,
+                                 candidates_setting, scene_data, out_dir)
 
                     i += 1
 
 
-def render_frame(scene, data, frame_name, candidates_setting, scene_data, out_dir):
-    manipulations = prepare_scene(data, candidates_setting)
-
+def render_frame(scene, data, manipulations, frame_name, candidates_setting,
+                 scene_data, out_dir):
     # Get referents in scene.
     # This should be a superset of the candidates in the scene -- it includes
     # candidates and also distractors (e.g. walls).
@@ -389,6 +423,7 @@ def main(args):
     @persistent
     def load_handler(_):
         render_images(bpy.context, bpy.data, scene_data, out_dir,
+                      randomization_mode=args.randomization_mode,
                       samples_per_setting=args.samples)
 
     bpy.app.handlers.load_post.append(load_handler)
@@ -408,6 +443,12 @@ if __name__ == '__main__':
     p.add_argument("-s", "--samples", type=int, default=5,
                    help="Number of samples for each possible setting")
     p.add_argument("-o", "--out_dir", default=os.getcwd())
+    p.add_argument("-r", "--randomization_mode",
+            help=("Specify how different samples from a given scene "
+                  "will be randomized (apart from the actual candidate "
+                  "sampling) -- e.g. by rotation, location along an axis, etc. "
+                  "See code for meanings of each randomization spec."),
+                   choices=["20180313", "20180410"], default="20180410")
 
     args = p.parse_args(argv)
     if not args or not args.scene_json:
