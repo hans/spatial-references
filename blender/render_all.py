@@ -236,7 +236,8 @@ def prepare_scene(data, candidate_setting, randomization_mode):
 
 
 def render_images(context, data, scene_data, out_dir,
-                  randomization_mode, samples_per_setting=5):
+                  randomization_mode, max_num_candidates=0,
+                  samples_per_setting=5):
     scene = context.scene
     camera = scene.camera
 
@@ -248,6 +249,9 @@ def render_images(context, data, scene_data, out_dir,
     i = 0
     for n_candidates in range(1, len(candidates) + 1):
         for candidates_set in itertools.combinations(candidates, n_candidates):
+            if max_num_candidates != 0 and len(candidates_set) > max_num_candidates:
+                continue
+
             for frames_ordered in itertools.permutations(frame_guides, n_candidates):
                 for _ in range(samples_per_setting):
                     candidates_setting = dict(zip(candidates_set, frames_ordered))
@@ -421,6 +425,7 @@ def main(args):
     def load_handler(_):
         render_images(bpy.context, bpy.data, scene_data, out_dir,
                       randomization_mode=args.randomization_mode,
+                      max_num_candidates=args.max_num_candidates,
                       samples_per_setting=args.samples)
 
     bpy.app.handlers.load_post.append(load_handler)
@@ -446,6 +451,7 @@ if __name__ == '__main__':
                   "sampling) -- e.g. by rotation, location along an axis, etc. "
                   "See code for meanings of each randomization spec."),
                    choices=["20180313", "20180410"], default="20180410")
+    p.add_argument("-c", "--max_num_candidates", type=int, default=0)
 
     args = p.parse_args(argv)
     if not args or not args.scene_json:
