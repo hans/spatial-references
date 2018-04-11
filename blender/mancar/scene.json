@@ -6,6 +6,8 @@
 
     "prompts": {
         "pick": "I'm looking for my friend. He is the one standing {relation} {ground}. Which one is my friend?",
-        "count": "How many people are standing {relation} {ground}?"
+        "count": "How many people are standing {relation} {ground}?",
+        "confirm": "Is this person {relation} {ground}?",
+        "confirm_3p": "My friend Mark says that this person is standing {relation} {ground}. Is Mark correct?"
     }
 }
