@@ -182,7 +182,7 @@ def randomize_rotation(obj, bounds=(-math.pi, math.pi)):
     return dz
 
 
-def randomize_distance(obj, guide, scale_bounds=(-3, 0)):
+def randomize_distance(obj, guide, scale_bounds=(-2, 0)):
     """
     Center the position of an object `obj` along a linear guide path `guide`,
     and randomize its distance on the axis perpendicular to that guide.
