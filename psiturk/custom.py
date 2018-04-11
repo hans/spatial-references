@@ -42,14 +42,24 @@ PART1_SCENE_DATA = load_scenes([("1", "mancar")])
 PART2_SCENE_DATA = load_scenes([("2", "mancar")])
 
 # Maximum number of requests to display to a particular user from each part.
-PART1_MAX_REQUESTS = 3
+PART1_MAX_REQUESTS = 6
 PART2_MAX_REQUESTS = 3
 
 
-def prepare_frame_json(frame, relation, prompt_type):
+def prepare_frame_json(frame, relation, prompt_type, path_prefix=None):
     meta = frame["scene_data"]
     prompt = meta["prompts"][prompt_type]
     prompt = prompt.format(relation=relation, ground=meta["ground"])
+
+    frame_path = frame["frame_path"]
+    labeled_frame_path = frame["labeled_frame_path"]
+    arrow_frame_path = frame.get("arrow_frame_path", None)
+
+    if path_prefix is not None:
+        frame_path = path_prefix + frame_path
+        labeled_frame_path = path_prefix + labeled_frame_path
+        if arrow_frame_path is not None:
+            arrow_frame_path = path_prefix + arrow_frame_path
 
     return {
         "scene": frame["scene"],
@@ -60,16 +70,14 @@ def prepare_frame_json(frame, relation, prompt_type):
         "prompt_type": prompt_type,
         "prompt": prompt,
 
-        "frame_path": frame["frame_path"],
-        "labeled_frame_path": frame["labeled_frame_path"],
-        "arrow_frame_path": frame["arrow_frame_path"],
+        "frame_path": frame_path,
+        "labeled_frame_path": labeled_frame_path,
+        "arrow_frame_path": arrow_frame_path,
     }
 
 
 @custom_code.route("/stimuli", methods=["GET"])
 def get_stimuli():
-    filler_idxs = random.sample(list(range(n_samples)), FILLER_PROPORTION * n_samples)
-
     ret = []
 
     part1_frames = random.sample(PART1_SCENE_DATA.keys(), PART1_MAX_REQUESTS)
@@ -79,7 +87,7 @@ def get_stimuli():
         relation = "in front of" if random.random() < 0.75 else "near"
         prompt_type = "confirm"
 
-        ret.append(prepare_frame_json(frame, relation, prompt_type))
+        ret.append(prepare_frame_json(frame, relation, prompt_type, path_prefix="1/"))
 
 
     part2_frames = random.sample(PART2_SCENE_DATA.keys(), PART2_MAX_REQUESTS)
@@ -89,13 +97,13 @@ def get_stimuli():
         relation = "near"
         prompt_type = "count"
 
-        ret.append(prepare_frame_json(frame, relation, prompt_type))
+        ret.append(prepare_frame_json(frame, relation, prompt_type, path_prefix="2/"))
 
     random.shuffle(ret)
 
     return jsonify({"stimuli": ret})
 
 
-@custom_code.route("/renders/<fname>")
+@custom_code.route("/renders/<path:fname>")
 def get_render(fname):
     return send_file(str(Path(RENDER_PATH) / fname), mimetype="image/png")
