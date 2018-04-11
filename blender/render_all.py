@@ -16,7 +16,7 @@ from tqdm import tqdm, trange
 
 import bpy
 from bpy.app.handlers import persistent
-from mathutils import Vector, Euler
+from mathutils import Vector, Euler, Matrix
 
 
 Box = namedtuple("Box", ["min_x", "min_y", "max_x", "max_y"])
@@ -182,22 +182,19 @@ def randomize_rotation(obj, bounds=(-math.pi, math.pi)):
     return dz
 
 
-def randomize_distance(obj, guide, scale_bounds=(0, 3)):
+def randomize_distance(obj, guide, scale_bounds=(-3, 0)):
     """
     Center the position of an object `obj` along a linear guide path `guide`,
     and randomize its distance on the axis perpendicular to that guide.
     """
-    # duplicate and rotate the guide
-    # guide will rotate along its central point by default
-    guide_perp = guide.copy()
+    p1, p2 = get_guide_endpoints(guide)
+    midpoint = p1 / 2 + p2 / 2
 
-    rot = guide_perp.rotation_euler
-    z = (rot.z + math.pi) % (2 * math.pi)
-    guide_perp.rotation_euler = Euler((rot.x, rot.y, z), "XYZ")
+    # Get vector perpendicular to the guide.
+    diff_rot = Matrix.Rotation(math.pi / 2, 3, 'Z') * (p2 - p1)
 
-    p1, p2 = get_guide_endpoints(guide_perp)
     scale_factor = scale_bounds[0] + random.random() * (scale_bounds[1] - scale_bounds[0])
-    target_point = p1 + scale_factor * (p2 - p1)
+    target_point = midpoint + scale_factor * diff_rot
 
     obj.location[0] = target_point[0]
     obj.location[1] = target_point[1]
