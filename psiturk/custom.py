@@ -20,90 +20,78 @@ custom_code = Blueprint("custom_code", __name__, template_folder="templates", st
 
 RENDER_PATH = "../blender/out"
 
-FILLER_PROPORTION = 2 / 7
-
 
 def load_scenes(scenes):
     ret = defaultdict(dict)
     for scene in scenes:
-        for path in Path(RENDER_PATH).glob("%s.*.json" % scene):
+        if isinstance(scene, tuple):
+            base = Path(RENDER_PATH) / scene[0]
+            scene_name = scene[1]
+        else:
+            scene_name = scene
+
+        for path in base.glob("%s.*.json" % scene_name):
             with path.open("r") as frame_f:
                 data = json.load(frame_f)
-                ret[scene][data["frame"]] = data
+                ret[(scene_name, data["frame"])] = data
 
     return dict(ret)
 
 
-def get_humans(frame_data):
-    return [ref for ref in frame_data["referents"].values() if ref["reference_frame"] is not None]
+PART1_SCENE_DATA = load_scenes([("1", "mancar")])
+PART2_SCENE_DATA = load_scenes([("2", "mancar")])
+
+# Maximum number of requests to display to a particular user from each part.
+PART1_MAX_REQUESTS = 3
+PART2_MAX_REQUESTS = 3
 
 
-def sample_stimuli(n, scene_data):
-    choices = {scene: set(frames.keys()) for scene, frames in SCENE_DATA.items()}
+def prepare_frame_json(frame, relation, prompt_type):
+    meta = frame["scene_data"]
+    prompt = meta["prompts"][prompt_type]
+    prompt = prompt.format(relation=relation, ground=meta["ground"])
 
-    ret = []
-    last_scene = None
-    for _ in range(n):
-        frame_data = None
-        while frame_data is None:
-            scene = random.choice(choices.keys())
-            remaining_frames = choices[scene]
-            frame_name = random.choice(list(remaining_frames))
-            frame_data_tmp = SCENE_DATA[scene][frame_name]
+    return {
+        "scene": frame["scene"],
+        "frame": frame["frame"],
+        "referents": frame["referents"],
 
-            # Bias samples to favor scenes with two people.
-            if len(get_humans(frame_data_tmp)) < 2 and random.random() < 0.75:
-                continue
-            frame_data = frame_data_tmp
+        "relation": relation,
+        "prompt_type": prompt_type,
+        "prompt": prompt,
 
-        ret.append(frame_data)
-        remaining_frames.remove(frame_name)
-
-    return ret
-
-
-SCENE_DATA = load_scenes(["boxcar"])
+        "frame_path": frame["frame_path"],
+        "labeled_frame_path": frame["labeled_frame_path"],
+        "arrow_frame_path": frame["arrow_frame_path"],
+    }
 
 
 @custom_code.route("/stimuli", methods=["GET"])
 def get_stimuli():
-    n_samples = 7
-
     filler_idxs = random.sample(list(range(n_samples)), FILLER_PROPORTION * n_samples)
 
     ret = []
-    for i, stim in enumerate(sample_stimuli(n_samples, SCENE_DATA)):
-        is_filler = i in filler_idxs
-        meta = stim["scene_data"]
 
-        relation, prompt_type = None, None
-        if is_filler:
-            relation = "near"
-            if len(get_humans(meta)) == 1:
-                prompt_type = random.choice(["pick", "count"])
-            else:
-                prompt_type = "count"
-        else:
-            # Rejection-sample a non-filler.
-            while relation is None or (relation == "near" and prompt_type == "count"):
-                relation = random.choice(meta["relations"])
-                prompt_type = random.choice(meta["prompts"].keys())
+    part1_frames = random.sample(PART1_SCENE_DATA.keys(), PART1_MAX_REQUESTS)
+    for frame_key in part1_frames:
+        frame = PART1_SCENE_DATA[frame_key]
 
-        prompt = meta["prompts"][prompt_type]
-        prompt = prompt.format(relation=relation, ground=meta["ground"])
+        relation = "in front of" if random.random() < 0.75 else "near"
+        prompt_type = "confirm"
 
-        ret.append({
-            "scene": stim["scene"],
-            "frame": stim["frame"],
-            "referents": stim["referents"],
+        ret.append(prepare_frame_json(frame, relation, prompt_type))
 
-            "relation": relation,
-            "prompt_type": prompt_type,
-            "prompt": prompt,
 
-            "frame_path": stim["frame_path"],
-            "labeled_frame_path": stim["labeled_frame_path"],
-        })
+    part2_frames = random.sample(PART2_SCENE_DATA.keys(), PART2_MAX_REQUESTS)
+    for frame_key in part2_frames:
+        frame = PART2_SCENE_DATA[frame_key]
+
+        relation = "near"
+        prompt_type = "count"
+
+        ret.append(prepare_frame_json(frame, relation, prompt_type))
+
+    random.shuffle(ret)
 
     return jsonify({"stimuli": ret})
 
