@@ -213,7 +213,7 @@ def prepare_scene(data, candidate_setting, randomization_mode):
         if randomization_mode == "none":
             # Center the candidate along the guide.
             p1, p2 = get_guide_endpoints(guide)
-            target = (p2 - p1)
+            target = p1 / 2 + p2 / 2
             person.location[0] = target[0]
             person.location[1] = target[1]
         elif randomization_mode == "20180313":
