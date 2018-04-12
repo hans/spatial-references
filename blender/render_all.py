@@ -210,7 +210,13 @@ def prepare_scene(data, candidate_setting, randomization_mode):
     """
     manipulations = defaultdict(dict)
     for person, guide in candidate_setting.items():
-        if randomization_mode == "20180313":
+        if randomization_mode == "none":
+            # Center the candidate along the guide.
+            p1, p2 = get_guide_endpoints(guide)
+            target = (p2 - p1)
+            person.location[0] = target[0]
+            person.location[1] = target[1]
+        elif randomization_mode == "20180313":
             m_pos = randomize_position(person, guide)
 
             rotation_bounds = (-math.pi, math.pi)
@@ -450,7 +456,7 @@ if __name__ == '__main__':
                   "will be randomized (apart from the actual candidate "
                   "sampling) -- e.g. by rotation, location along an axis, etc. "
                   "See code for meanings of each randomization spec."),
-                   choices=["20180313", "20180410"], default="20180410")
+                   choices=["none", "20180313", "20180410"], default="20180410")
     p.add_argument("-c", "--max_num_candidates", type=int, default=0)
 
     args = p.parse_args(argv)
