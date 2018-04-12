@@ -38,11 +38,14 @@ def load_scenes(scenes):
     return dict(ret)
 
 
-PART1_SCENE_DATA = load_scenes([("1", "mancar")])
+PART1_SCENE_DATA = load_scenes([("1a", "mancar")])
 PART2_SCENE_DATA = load_scenes([("2", "mancar")])
 
 # Maximum number of requests to display to a particular user from each part.
-PART1_MAX_REQUESTS = 6
+# 1a
+PART1_MAX_REQUESTS = 3
+# # 1b
+# PART1_MAX_REQUESTS = 6
 PART2_MAX_REQUESTS = 3
 
 
@@ -84,10 +87,10 @@ def get_stimuli():
     for frame_key in part1_frames:
         frame = PART1_SCENE_DATA[frame_key]
 
-        relation = "in front of" if random.random() < 0.75 else "near"
+        relation = "in front of" if random.random() < 0.9 else "near"
         prompt_type = "confirm"
 
-        ret.append(prepare_frame_json(frame, relation, prompt_type, path_prefix="1/"))
+        ret.append(prepare_frame_json(frame, relation, prompt_type, path_prefix="1a/"))
 
 
     part2_frames = random.sample(PART2_SCENE_DATA.keys(), PART2_MAX_REQUESTS)
