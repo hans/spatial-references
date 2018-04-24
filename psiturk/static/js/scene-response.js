@@ -16,15 +16,22 @@ jsPsych.plugins["scene-choice"] = (function() {
 
     var data = trial.data;
 
-    var html = '<p class="scene-instructions">Respond to the following prompt:</p>';
-    html += '<p class="scene-prompt">' + data.prompt + '</p>';
+    var html = "";
+    if (data.prompt_type == "confirm_3p") {
+      var html = '<p class="scene-instructions">Another Turker agreed with the following statement about this scene:</p>';
+      html += '<p class="scene-prompt">' + data.prompt + '</p>';
+      html += '<p class="scene-instructions">Was that Turker correct?</p>';
+    } else {
+      var html = '<p class="scene-instructions">Please respond to the following prompt:</p>';
+      html += '<p class="scene-prompt">' + data.prompt + '</p>';
+    }
 
     var frame_path = null;
     if (data.prompt_type == "pick") {
       frame_path = data.labeled_frame_path;
     } else if (data.prompt_type == "count") {
       frame_path = data.frame_path;
-    } else if (data.prompt_type == "confirm") {
+    } else if (data.prompt_type == "confirm" || data.prompt_type == "confirm_3p") {
       frame_path = data.arrow_frame_path;
     }
     html += '<img src="/renders/'+frame_path+'" id="scene-stimulus"></img>';
@@ -44,6 +51,8 @@ jsPsych.plugins["scene-choice"] = (function() {
       choices = count_choices(choices);
     } else if (data.prompt_type == "confirm") {
       choices = ["Yes", "No"]
+    } else if (data.prompt_type == "confirm_3p") {
+      choices = ["Yes, they were correct.", "No, they were not correct."]
     }
 
     for (var i = 0; i < choices.length; i++) {
