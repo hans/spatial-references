@@ -54,7 +54,7 @@ def prepare_frame_json(frame, relation, prompt_type, path_prefix=None):
     prompt = meta["prompts"][prompt_type]
     if prompt_type == "confirm":
         # HACK: custom prompt for 20180423 experiment
-        prompt = "The man is {relation} the {ground}."
+        prompt = "This man is {relation} the {ground}."
         prompt_type = "confirm_3p"
     prompt = prompt.format(relation=relation, ground=meta["ground"])
 
